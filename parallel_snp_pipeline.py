@@ -1,0 +1,192 @@
+#!/usr/bin/env python2.7
+
+from __future__ import print_function
+import sys, os, time
+import argparse
+import subprocess
+import shlex
+import glob
+from random import shuffle
+import multiprocessing
+
+J_LIMIT = 4
+KT = "scripts/kmer_tax.py"
+ADT = "scripts/assimpler_distance_trees.py"
+
+parser = argparse.ArgumentParser(
+    description='Batch Evergreen pipeline')
+parser.add_argument(
+   '-b',
+   dest="base",
+   default="/data/evergreen",
+   help='Base output directory, absolute path')
+parser.add_argument(
+    '-f',
+    dest="isolates_file",
+    default=None,
+    help='File with sample names and paths to raw runs. Files for same isolate given comma separated.')
+parser.add_argument(
+    '-i',
+    dest="collection_file",
+    default=None,
+    help='Collection file of raw reads')
+parser.add_argument(
+    '-a',
+    dest="allcalled",
+    action="store_true",
+    help='Consider all positions in column for Ns')
+parser.add_argument(
+    '-p',
+    dest="pairwise",
+    action="store_true",
+    help='Consider the sequences pairwise for Ns')
+parser.add_argument(
+    '-D',
+    dest="distance",
+    action="store_true",
+    help='Distance based phylogenic tree')
+parser.add_argument(
+    '-L',
+    dest="likelihood",
+    action="store_true",
+    help='Maximum likelihood based phylogenic tree')
+parser.add_argument(
+    '-d',
+    dest="debug",
+    action="store_true",
+    help='Debug: use .t suffixes')
+parser.add_argument(
+    '-q',
+    dest="quiet",
+    action="store_true",
+    help='Quiet')
+args = parser.parse_args()
+
+def jobstart(adt_cmd):
+    #job = print(adt_cmd)
+    cmd = shlex.split(adt_cmd)
+    job = subprocess.call(cmd)
+    return job
+
+def exiting(message):
+    print(message, file=sys.stderr)
+    print("FAIL", file=sys.stderr)
+    sys.exit(1)
+
+def timing(message):
+    if not args.quiet:
+        t1 = time.time()
+        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=sys.stdout)
+    return
+
+def callwhere(cmd):
+    if args.debug:
+        print(cmd)
+
+def adt_call(tmpl_file):
+
+    adt_cmd += " -i {2}".format(os.path.join(wdir, tmpl_file))
+
+    cmd = shlex.split(adt_cmd)
+    subprocess.call(cmd)
+    return
+
+def fit_folder(folder):
+    """Avoid having more than 10000 files in one folder."""
+    full_folder = os.path.join(bdir, folder)
+    i = 1
+    while len(os.listdir(full_folder)) > 10000:
+        i += 1
+        full_folder = os.path.join(bdir, "{0}-{1}".format(folder, i))
+        if not os.path.exists(full_folder):
+            os.mkdir(full_folder)
+    return full_folder
+
+## Main
+t0 = time.time()
+pid = os.getpid()
+todaysdate = time.strftime("%d%m%Y")
+
+debug_opt = ""
+if args.debug:
+    debug_opt = "-d"
+
+# Check base dir
+bdir = os.path.realpath(args.base)
+if not os.path.isdir(bdir):
+    exiting("Base path is required.")
+
+wdir = fit_folder("output")
+
+if not args.allcalled and not args.pairwise:
+    exiting("Either -a or -p option is needed!")
+
+if args.isolates_file is not None:
+
+    if not os.path.exists(args.isolates_file):
+        exiting("List of raw reads required.")
+
+    opt_cmd = "" + debug_opt
+    kt_cmd = "{0} -l {1} -o {2} -wdir {2} {3}".format(os.path.join(bdir, KT), args.isolates_file, wdir, opt_cmd)
+
+elif args.collection_file is not None:
+    collection = args.collection_file
+    if not os.path.exists(collection):
+        exiting("Collections file is unavailable, {0}.".format(collection))
+
+    #
+    # /data/evergreen/scripts/kmer_tax
+    # -h, --help            show this help message and exit
+    # -i COLLECTION_FILE    Input file of collected runs
+    # -f RUNS_FILENAME      Comma separated paths to raw runs
+    # -o ODIR               Output directory
+    # -db DATABASE          Database, absolute path
+    # -f_db FOLDER_DATABASE
+    #                       Acc number to folder pickle
+    # -fa_db FSA_DATABASE   Acc number to filename pickle
+    # -wdir WDIR            Working directory, not required
+    # -d, --debug           Debug
+    # -q                    Quiet
+
+    opt_cmd = "" + debug_opt
+    kt_cmd = "{0} -i {1} -o {2} -wdir {2} {3}".format(os.path.join(bdir, KT), collection, wdir, opt_cmd)
+
+else:
+    exiting("Input files not given.")
+
+callwhere(kt_cmd)
+retcode = jobstart(kt_cmd)
+if retcode:
+    exiting("Kmer_tax exited with error.")
+
+start_dir = os.environ.get('PBS_O_WORKDIR')
+os.chdir(wdir)
+prefix = "kmer_{0}_{1}".format(todaysdate, pid)
+tmpl_files = glob.glob("{}_*.tmpl".format(prefix))
+job_no = len(tmpl_files)
+if not job_no:
+    exiting("Warning: no templates were found for prefix: {0}\n{1}".format(prefix, collection))
+
+adt_cmd = "{0} -b {1} -k".format(ADT, args.base)
+if args.allcalled and not args.pairwise:
+    adt_cmd += ' -a'
+if args.likelihood:
+    adt_cmd += ' -L'
+if args.distance:
+    adt_cmd += ' -D'
+if args.debug:
+    adt_cmd += ' -d'
+if args.quiet:
+    adt_cmd += ' -q'
+
+if start_dir is not None:
+    os.chdir(start_dir)
+
+if __name__ == '__main__':
+
+    p = multiprocessing.Pool(J_LIMIT)
+    p.map(adt_call, tmpl_files)
+
+
+print("DONE", file=sys.stderr)
+sys.exit(0)
