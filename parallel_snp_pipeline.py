@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 from __future__ import print_function
-import sys, os, time
+import sys, os, time, math
 import argparse
 import subprocess
 import shlex
@@ -14,7 +14,7 @@ KT = "scripts/kmer_tax.py"
 ADT = "scripts/assimpler_distance_trees.py"
 
 parser = argparse.ArgumentParser(
-    description='Batch Evergreen pipeline')
+    description='Parallel SNP pipeline')
 parser.add_argument(
    '-b',
    dest="base",
@@ -62,9 +62,9 @@ parser.add_argument(
     help='Quiet')
 args = parser.parse_args()
 
-def jobstart(adt_cmd):
-    #job = print(adt_cmd)
-    cmd = shlex.split(adt_cmd)
+def jobstart(command):
+    #job = print(command)
+    cmd = shlex.split(command)
     job = subprocess.call(cmd)
     return job
 
@@ -83,10 +83,26 @@ def callwhere(cmd):
     if args.debug:
         print(cmd)
 
+def adt_call_p(tmpl_file):
+    print(tmpl_file)
+
 def adt_call(tmpl_file):
 
-    adt_cmd += " -i {2}".format(os.path.join(wdir, tmpl_file))
-
+    adt_cmd = "{0} -b {1} -k".format(os.path.join(args.base, ADT), args.base)
+    if args.allcalled and not args.pairwise:
+        adt_cmd += ' -a'
+    if args.likelihood:
+        adt_cmd += ' -L'
+    if args.distance:
+        adt_cmd += ' -D'
+    if args.debug:
+        adt_cmd += ' -d'
+    if args.quiet:
+        adt_cmd += ' -q'
+    
+    adt_cmd += " -i {0}".format(os.path.join(wdir, tmpl_file))
+    
+    print("Subprocess:", adt_cmd)
     cmd = shlex.split(adt_cmd)
     subprocess.call(cmd)
     return
@@ -121,13 +137,20 @@ wdir = fit_folder("output")
 if not args.allcalled and not args.pairwise:
     exiting("Either -a or -p option is needed!")
 
+# db paths
+db_paths = "-db {0} -f_db {1} -fa_db {2}".format(os.path.join(bdir, "hr_database/current/bacterial_compl_genomes_hq99_k13_ATG"),
+  os.path.join(bdir, "hr_database/current/bacteria.folder.pic"),
+  os.path.join(bdir, "hr_database/current/bacteria.fsa_name.pic")
+)
+
+
 if args.isolates_file is not None:
 
     if not os.path.exists(args.isolates_file):
         exiting("List of raw reads required.")
 
     opt_cmd = "" + debug_opt
-    kt_cmd = "{0} -l {1} -o {2} -wdir {2} {3}".format(os.path.join(bdir, KT), args.isolates_file, wdir, opt_cmd)
+    kt_cmd = "{0} -l {1} -o {2} -wdir {2} {3} {4}".format(os.path.join(bdir, KT), args.isolates_file, wdir, db_paths, opt_cmd)
 
 elif args.collection_file is not None:
     collection = args.collection_file
@@ -149,7 +172,7 @@ elif args.collection_file is not None:
     # -q                    Quiet
 
     opt_cmd = "" + debug_opt
-    kt_cmd = "{0} -i {1} -o {2} -wdir {2} {3}".format(os.path.join(bdir, KT), collection, wdir, opt_cmd)
+    kt_cmd = "{0} -i {1} -o {2} -wdir {2} {3} {4}".format(os.path.join(bdir, KT), collection, wdir, db_paths, opt_cmd)
 
 else:
     exiting("Input files not given.")
@@ -167,26 +190,15 @@ job_no = len(tmpl_files)
 if not job_no:
     exiting("Warning: no templates were found for prefix: {0}\n{1}".format(prefix, collection))
 
-adt_cmd = "{0} -b {1} -k".format(ADT, args.base)
-if args.allcalled and not args.pairwise:
-    adt_cmd += ' -a'
-if args.likelihood:
-    adt_cmd += ' -L'
-if args.distance:
-    adt_cmd += ' -D'
-if args.debug:
-    adt_cmd += ' -d'
-if args.quiet:
-    adt_cmd += ' -q'
-
 if start_dir is not None:
     os.chdir(start_dir)
+
+J_LIMIT = min(job_no, J_LIMIT)
 
 if __name__ == '__main__':
 
     p = multiprocessing.Pool(J_LIMIT)
     p.map(adt_call, tmpl_files)
-
 
 print("DONE", file=sys.stderr)
 sys.exit(0)

@@ -262,7 +262,7 @@ if args.collection_file is not None:
                     if os.path.isfile(fp):
                         tmp.append(fp)
                 inputs[acc] = " ".join(tmp)
-                runs_insert.append((acc, ddir, ",".join(tmp))
+                runs_insert.append((acc, ddir, ",".join(tmp)))
     ifile.close()
 
 elif args.runs_filename is not None:

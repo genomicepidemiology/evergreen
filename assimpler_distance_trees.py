@@ -65,7 +65,7 @@ args = parser.parse_args()
 def jobstart(command):
     #job = print(command)
     cmd = shlex.split(command)
-    job = subprocess.call(cmd)
+    job = subprocess.call(cmd, stdout=logfile, stderr=logfile)
     return job
 
 def jobstart_silent(command):
@@ -80,14 +80,14 @@ def jobstart_silent(command):
     return job
 
 def exiting(message):
-    print(message, file=sys.stderr)
-    print("FAIL", file=sys.stderr)
+    print(message, file=logfile)
+    print("FAIL", file=logfile)
     sys.exit(1)
 
 def timing(message):
     if not args.quiet:
         t1 = time.time()
-        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=sys.stdout)
+        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=logfile)
     return
 
 def parse_input():
@@ -121,7 +121,10 @@ PTREE = os.path.join(bdir, "scripts/tree_cobbler.py")
 
 # Process collection file
 inputs = []
+logfile = None
 if args.collection_file is not None:
+    logfilename = os.path.join(bdir, "logs/{}.log".format(os.path.split(args.collection_file)[-1].split(".")[0]))
+    logfile = open(logfilename, "w")
     inputs = parse_input()
 else:
     exiting("Please specify input file.")
@@ -139,13 +142,16 @@ else:
 
 # db management
 suffix = ""
-if args.debug and os.path.exists(db_path):
+if args.debug: 
     suffix = ".t"
-    try:
-        shutil.copy(db_path, db_path + suffix)
-        db_path = db_path + suffix
-    except OSError:
-        exiting("Couldnt copy the temp database.")
+
+    if os.path.exists(db_path):
+        try:
+            shutil.copy(db_path, db_path + suffix)
+        except OSError:
+            exiting("Couldnt copy the temp database.")
+
+db_path = db_path + suffix
 
 conn = sqlite3.connect(db_path)
 conn.execute("PRAGMA foreign_keys = 1")
@@ -264,8 +270,6 @@ if non_redundant_no > 2:
         add_opt = "-t"
     if args.keep:
         add_opt += " -k"
-    if args.graphics:
-        add_opt += " -g"
 
     # allow both methods to be run: fork a distance and a ML tree maker
     procs = []
@@ -273,12 +277,12 @@ if non_redundant_no > 2:
         cmd = "{0} -b {1} -m {2} {3} -d".format(PTREE, wdir, matfilename, add_opt)
         if args.debug:
             print("# Tree command: ", cmd)
-        procs.append(subprocess.Popen(shlex.split(cmd)))
+        procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
     if args.likelihood and non_redundant_no > 3 and non_redundant_no < 650: # IqTree only bootstraps nlt 4 sequences
         cmd = "{0} -b {1} -f {2} {3} -l -m {4}".format(PTREE, wdir, hrfilename, add_opt, matfilename)
         if args.debug:
             print("# Tree command: ", cmd)
-        procs.append(subprocess.Popen(shlex.split(cmd)))
+        procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
 
     if sum([proc.wait() for proc in procs]) != 0:
         exiting("Error: tree inference is unsuccessful.")
@@ -287,5 +291,6 @@ if non_redundant_no > 2:
 else:
     timing("# Tree inference not possible.")
 
-print("DONE", file=sys.stderr)
+print("DONE", file=logfile)
+logfile.close()
 sys.exit(0)

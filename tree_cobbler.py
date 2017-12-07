@@ -1,4 +1,4 @@
-#!/user/bin/env python2.7
+#!/usr/bin/env python2.7
 
 from __future__ import print_function
 import sys, os, time
@@ -13,7 +13,7 @@ from operator import itemgetter
 from ete3 import Tree
 
 base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
-IQTREE = os.path.join(base_path, "scripts/iqtree-1.6.beta4")
+IQTREE = os.path.join(base_path, "scripts/iqtree")
 DTREE = os.path.join(base_path, "scripts/neighbor")
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
 
