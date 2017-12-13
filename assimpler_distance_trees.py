@@ -10,9 +10,10 @@ import subprocess
 import shlex
 #from random import shuffle
 from joblib import Parallel, delayed
+from multiprocessing import cpu_count
 import sqlite3
 
-J_LIMIT = 4
+J_LIMIT = int(cpu_count() / 4)
 
 """
 Takes: one file with the collected info about the isolates (from kmer_tax)
@@ -88,6 +89,9 @@ def timing(message):
     if not args.quiet:
         t1 = time.time()
         print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=logfile)
+        # flush it
+        logfile.flush()
+        os.fsync(logfile.fileno())
     return
 
 def parse_input():
@@ -142,7 +146,7 @@ else:
 
 # db management
 suffix = ""
-if args.debug: 
+if args.debug:
     suffix = ".t"
 
     if os.path.exists(db_path):

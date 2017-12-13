@@ -202,9 +202,13 @@ def remain_len_old(i, j, ones, mask):
 
 def n_content(sequences):
    """Test the sequence for the number of N bases."""
+   t_len = 0
+   n_count = 0.0
    for chrom in sequences:
-      if (( float(chrom.count("N")) / len(chrom)) > 0.100):
-         return True
+      t_len += len(chrom)
+      n_count += chrom.count("N")
+   if ((n_count / t_len) > 0.100):
+      return True
    return False
 
 def seq_to_homol(cluster):

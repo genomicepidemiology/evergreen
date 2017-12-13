@@ -8,6 +8,7 @@ import shlex
 import glob
 from random import shuffle
 import multiprocessing
+import sqlite3
 
 J_LIMIT = 4
 KT = "scripts/kmer_tax.py"
@@ -99,9 +100,9 @@ def adt_call(tmpl_file):
         adt_cmd += ' -d'
     if args.quiet:
         adt_cmd += ' -q'
-    
+
     adt_cmd += " -i {0}".format(os.path.join(wdir, tmpl_file))
-    
+
     print("Subprocess:", adt_cmd)
     cmd = shlex.split(adt_cmd)
     subprocess.call(cmd)
@@ -122,6 +123,8 @@ def fit_folder(folder):
 t0 = time.time()
 pid = os.getpid()
 todaysdate = time.strftime("%d%m%Y")
+# unbuffered output
+os.environ['PYTHONUNBUFFERED'] = '1'
 
 debug_opt = ""
 if args.debug:
@@ -142,7 +145,7 @@ db_paths = "-db {0} -f_db {1} -fa_db {2}".format(os.path.join(bdir, "hr_database
   os.path.join(bdir, "hr_database/current/bacteria.folder.pic"),
   os.path.join(bdir, "hr_database/current/bacteria.fsa_name.pic")
 )
-
+MAIN_SQL_DB = os.path.join(bdir, "results_db/evergreen.db")
 
 if args.isolates_file is not None:
 
@@ -199,6 +202,29 @@ if __name__ == '__main__':
 
     p = multiprocessing.Pool(J_LIMIT)
     p.map(adt_call, tmpl_files)
+
+# update the db to see what was included in the trees
+conn = sqlite3.connect(MAIN_SQL_DB)
+conn.execute("PRAGMA foreign_keys = 1")
+cur = conn.cursor()
+
+cur.execute('''SELECT count(*) from sqlite_master where type='table' and name='templates';''')
+if cur.fetchone()[0] == 1:
+    included_update = []
+    cur.execute('''SELECT sra_id from runs where included=2;''')
+    svar = cur.fetchall()
+    for row in svar:
+        # if not on at least one tree then not included
+        cur.execute('''SELECT sum(qc_pass) from templates where sra_id=?''', (row[0],))
+        templ_no = cur.fetchone()[0]
+        if templ_no is not None and templ_no != 0:
+            included_update.append((1, row[0]))
+        else:
+            included_update.append((0, row[0]))
+
+    if included_update:
+        cur.executemany('''UPDATE runs SET included=? WHERE sra_id=?''', included_update)
+        conn.commit()
 
 print("DONE", file=sys.stderr)
 sys.exit(0)

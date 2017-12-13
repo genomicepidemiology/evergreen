@@ -10,6 +10,7 @@ import shlex
 import subprocess
 import sqlite3
 from joblib import Parallel, delayed
+from multiprocessing import cpu_count
 
 """
 Obs: Offline version, the db is populated here with runs!!
@@ -18,7 +19,7 @@ Obs: Offline version, the db is populated here with runs!!
 
 NAP = 30
 WAIT = 600
-J_LIMIT = 24 # for a full node
+J_LIMIT = cpu_count()
 base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
 REF_GEN_DIR = os.path.join(base_path, "complete_genomes") #the ref genomes without the plasmids !!!
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
@@ -93,7 +94,7 @@ def jobstart(command):
 
 
 def jobstart_safe_n_silent(command):
-    """Launch process with output redirected to /dev/null"""
+    """Launch process with output redirected to /dev/null, kill process after WAIT time"""
     try:
         devnull = open(os.devnull, 'w')
     except IOError as e:
@@ -145,8 +146,8 @@ def get_template(filename):
                 if len(d) > 9:
                     template_coverage = float(d[9])
                     depth = float(d[10])
-                    if (template_coverage > 87 and depth >= 11.0): #TODO decide on the threshold 87.752
-                        # take all templates above 90kmerID%, the HR on the db should ensure limited similarity btw the templates
+                    if (template_coverage > 87.752 and depth >= 11.0):
+                        # take all templates above XXkmerID%, the HR on the db should ensure limited similarity btw the templates
                         tmp = d[0].split()
                         species = " ".join(tmp[1:3])
                         # convert the templ_acc to the folder/template name we have in the dir system
