@@ -226,5 +226,15 @@ if cur.fetchone()[0] == 1:
         cur.executemany('''UPDATE runs SET included=? WHERE sra_id=?''', included_update)
         conn.commit()
 
+# get a list of trees made in this run
+cur.execute('''SELECT count(*) from sqlite_master where type='table' and name='trees';''')
+if cur.fetchone()[0] == 1:
+    cur.execute('''SELECT template,ctime,nw_path from trees where ctime > datetime(?, 'unixepoch');''', (t0,))
+    print("\n=== Inferred trees in this run ===\n")
+    print("template", "time", "path", sep="\t")
+    for row in cur.fetchall():
+        print("\t".join(row))
+
+
 print("DONE", file=sys.stderr)
 sys.exit(0)

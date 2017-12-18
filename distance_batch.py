@@ -717,14 +717,21 @@ if not args.allcalled:
 
 
 # print dist matrix in phylip
+seqid2name = {}
+seq_id = ""
 with open(outputmat, "w") as matfile:
     #print("\t","\t".join(seqnames), file=matfile)
     print("  {0}".format(len(matrix)), file=matfile)
     for r, row in enumerate(matrix):
-        print("{:<10}".format(seqnames[r][:10]), end = "", file=matfile)
+        seq_id = "I{:06}".format(r+1)
+        seqid2name[seq_id] = seqnames[r]
+        print("{:<10}".format(seq_id), end = "", file=matfile)
         for e in row[:-1]:
             print('{0:.0f}'.format(e), end = "\t", file=matfile)
         print('{0:.0f}'.format(row[-1]), file=matfile)
+
+with open(os.path.join(args.odir, "seqid2name.pic"), "w") as pf:
+    pickle.dump(seqid2name, pf)
 
 timing("# Constructed distance matrix.")
 

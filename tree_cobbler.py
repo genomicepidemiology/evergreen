@@ -142,6 +142,27 @@ def decorate_tree(treepath, mode):
     full_tree.write(format=0, outfile=outpath)
     if args.debug:
         print(full_tree)
+
+    return
+
+def decode_nw_file(nw_file):
+    # load the pickle with id: seqname pairs
+    seqid2name = {}
+    with open(os.path.join(args.bdir, "seqid2name.pic"), "r") as pf:
+        seqid2name = pickle.load(pf)
+
+    newick = []
+    with open(nw_file, "r") as nw_f:
+        for line in nw_f:
+            newick.append(line)
+
+    newick_str = "".join(newick)
+    for key in seqid2name.keys():
+        newick_str = newick_str.replace(key, seqid2name.get(key))
+
+    with open(nw_file, "w") as nw_f:
+        nw_f.write(newick_str)
+
     return
 
 def print2msa(msafile, fsafilename, seqname):
@@ -266,11 +287,13 @@ suffix = ""
 if args.debug:
     suffix = ".t"
 
+treefilename = None
 if args.distance:
     method = "dist"
     matpath = input_validation(args.distmat)
     mode = os.path.split(matpath)[1].split(".")[1]
     wdir = change2subdir(mode)
+    treefilename = "outtree"
 
     inputstr = "{0}\nY\n".format(matpath)
     proc = subprocess.Popen(DTREE, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -283,6 +306,8 @@ if args.distance:
     with open("output", "w") as ofile:
         print(stdoutdata, file=ofile)
 
+    decode_nw_file(os.path.join(wdir, "outtree"))
+
     timing("# Distance based tree constructed.")
 
 elif args.likelihood:
@@ -291,6 +316,7 @@ elif args.likelihood:
     filepath = input_validation(args.filelist)
     mode = os.path.split(filepath)[1].split(".")[1]
     wdir = change2subdir(mode)
+    treefilename = "sequences.fa.treefile"
 
     # get the NJ tree made
     inputstr = "{0}\nY\n".format(matpath)
@@ -303,6 +329,8 @@ elif args.likelihood:
 
     with open("output", "w") as ofile:
         print(stdoutdata, file=ofile)
+
+    decode_nw_file(os.path.join(wdir, "outtree"))
 
     # make the maxL tree
     try:
@@ -342,10 +370,6 @@ else:
     # neither option was chosen
     exiting("Tree method was not chosen.")
 
-if method == "dist":
-    treefilename = "outtree"
-else:
-    treefilename = "sequences.fa.treefile"
 
 fulltree_file = os.path.join(bdir, "_tree", "{0}_{1}_{2}.newick{3}".format(mode, method, ctime, suffix))
 if os.path.exists(os.path.join(bdir, "clusters.{0}.pic{1}".format(mode, suffix))):
@@ -366,6 +390,29 @@ if args.likelihood:
         pass
 
 timing("# Tree decorated.")
+
+if not args.debug:
+    conn = sqlite3.connect(MAIN_SQL_DB)
+    conn.execute("PRAGMA foreign_keys = 1")
+    conn.commit()
+    cur = conn.cursor()
+
+    # save tree to db
+    cur.execute('''CREATE TABLE IF NOT EXISTS trees
+        (db_id INTEGER PRIMARY KEY,
+        template TEXT,
+        method TEXT,
+        mode TEXT,
+        ctime DATETIME DEFAULT CURRENT_TIMESTAMP,
+        nw_path TEXT,
+        UNIQUE(template, method, mode)
+        );''')
+    conn.commit()
+
+    template_name = os.path.basename(bdir)
+    cur.execute('''INSERT OR REPLACE INTO trees (template,method,mode,nw_path) VALUES (?,?,?,?)''', (template_name, method, mode, fulltree_file))
+    conn.commit()
+    conn.close()
 
 os.chdir(oldpath)
 if not args.keep:
