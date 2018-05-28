@@ -3,12 +3,9 @@
 from __future__ import print_function
 import sys, os, time
 import argparse
-import tempfile
-import pickle
 import shutil
 import subprocess
 import shlex
-#from random import shuffle
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
 import sqlite3
@@ -17,6 +14,9 @@ J_LIMIT = int(cpu_count() / 4)
 
 """
 Takes: one file with the collected info about the isolates (from kmer_tax)
+
+Change:
+- for COMPARE: delete ml tree from db if > 650 seqs and thus no new ml tree is done
 """
 
 parser = argparse.ArgumentParser(
@@ -286,12 +286,15 @@ if not os.path.exists(os.path.join(wdir, "_tree")):
 timing("# Distance calculation is done.")
 
 # use .t file if debug
+mode = 'pw'
 if args.allcalled:
     hrfilename = os.path.join(wdir, "non-redundant.all.lst{0}".format(suffix))
     matfilename = os.path.join(wdir, "dist.all.mat{0}".format(suffix))
+    mode = 'all'
 else:
     hrfilename = os.path.join(wdir, "non-redundant.pw.lst{0}".format(suffix))
     matfilename = os.path.join(wdir, "dist.pw.mat{0}".format(suffix))
+
 
 
 # only if more than 3 seqs in non-redundant.*.lst !
@@ -305,7 +308,7 @@ if non_redundant_no > 2:
         add_opt = "-t"
     if args.keep:
         add_opt += " -k"
-    
+
     if args.allcalled:
         add_opt += " -a"
 
@@ -317,11 +320,25 @@ if non_redundant_no > 2:
         if args.debug:
             print("# Tree command: ", cmd)
         procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
-    if args.likelihood and non_redundant_no > 3 and non_redundant_no < 650: # IqTree only bootstraps nlt 4 sequences
+
+    if args.likelihood and non_redundant_no > 3 and non_redundant_no <= 300:
         cmd = "{0} -b {1} -f {2} {3} -l -m {4}".format(PTREE, wdir, "-", add_opt, matfilename)
         if args.debug:
             print("# Tree command: ", cmd)
         procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
+    elif args.likelihood and non_redundant_no > 300:
+        # too many isolates for ml, thus the ml tree in the db is deleted
+        conn = sqlite3.connect(MAIN_SQL_DB)
+        conn.execute("PRAGMA foreign_keys = 1")
+        conn.commit()
+        cur = conn.cursor()
+        # reach back and update runs table in the main DB to 2 as non-included
+        try:
+            cur.execute('''DELETE or IGNORE from trees where template=? and method='ml' and mode=?;''', (template, mode))
+            conn.commit()
+        except sqlite3.Error:
+            print("Warning: SQL delete failed.", file=sys.stderr)
+        conn.close()
 
     if sum([proc.wait() for proc in procs]) != 0:
         exiting("Error: tree inference is unsuccessful.")

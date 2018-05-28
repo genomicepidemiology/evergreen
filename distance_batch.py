@@ -9,12 +9,13 @@ import argparse
 from operator import itemgetter
 import gzip
 import tempfile
-from joblib import Parallel, delayed, load, dump
+from joblib import Parallel, delayed, dump, load
 import sqlite3
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+import config
 
 # quick hack
 base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
@@ -265,6 +266,7 @@ if args.odir is None:
     exiting('Output directory is needed')
 
 # File for distance matrix output
+templ = os.path.basename(args.odir)
 if args.outputfilenamemat is None:
     if args.allcalled:
         outputmat = os.path.join(args.odir, "dist.all.mat{0}".format(suffix))
@@ -285,14 +287,13 @@ conn.commit()
 cur = conn.cursor()
 
 # for template
+mode = 'pw'
 if args.allcalled:
-    db_path = os.path.join(args.odir, "isolates.all.db{}".format(suffix))
-    non_red_pic = os.path.join(args.odir, "non-red.all.pic{}".format(suffix))
-    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.all{}.npy".format(suffix))
-else:
-    db_path = os.path.join(args.odir, "isolates.pw.db{}".format(suffix))
-    non_red_pic = os.path.join(args.odir, "non-red.pw.pic{}".format(suffix))
-    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.pw{}.npy".format(suffix))
+    mode = 'all'
+
+db_path = os.path.join(args.odir, "isolates.{0}.db{1}".format(mode, suffix))
+non_red_pic = os.path.join(args.odir, "non-red.{0}.pic{1}".format(mode, suffix))
+hr_matrix_npy = os.path.join(args.odir, "hr-matrix.{0}{1}.npy".format(mode, suffix))
 
 
 iso_conn = sqlite3.connect(db_path)
@@ -302,7 +303,6 @@ iso_cur = iso_conn.cursor()
 
 # New strains
 newseqs = []
-templ = os.path.basename(args.odir)
 
 if args.new == "-":
     # TODO DONE isolates list from db
@@ -516,7 +516,7 @@ if not args.quiet:
 
 # TODO DONE
 # dump hr array to /dev/shm
-temp_folder = tempfile.mkdtemp(prefix='ever_joblib_', dir='/dev/shm')
+temp_folder = tempfile.mkdtemp(prefix='ever_joblib_', dir=config.NUMPY_MEMMAP_DIR)
 hr_memmap_fn = os.path.join(temp_folder, 'hr_matrix.npy')
 dump(inputhrseqmat, hr_memmap_fn)
 
@@ -524,9 +524,10 @@ dump(inputhrseqmat, hr_memmap_fn)
 del inputhrseqmat
 gc.collect()
 
+# load as a memmap
 hrseqmat_memmap = load(hr_memmap_fn, mmap_mode='r')
 # print(np.info(hrseqmat_memmap))
-timing("# Dumped hr matrix to /dev/shm")
+timing("# Dumped hr matrix to disk")
 
 # calculate genetic distance between old and new isolates
 no_jobs = min(slens[0], no_jobs)
@@ -666,7 +667,7 @@ with open(outputmat, "w") as matfile:
             print('{0:.0f}'.format(e), end = "\t", file=matfile)
         print('{0:.0f}'.format(row[-1]), file=matfile)
 
-with open(os.path.join(args.odir, "seqid2name.pic"), "w") as pf:
+with open(os.path.join(args.odir, "seqid2name.{}.pic".format(mode)), "w") as pf:
     pickle.dump(seqid2name, pf)
 
 timing("# Constructed distance matrix.")
