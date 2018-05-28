@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.7
-
 from __future__ import print_function
 import sys, os, time
 import argparse
@@ -16,6 +15,7 @@ base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
 IQTREE = os.path.join(base_path, "scripts/iqtree")
 DTREE = os.path.join(base_path, "scripts/neighbor")
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
+
 
 
 parser = argparse.ArgumentParser(
@@ -44,6 +44,11 @@ parser.add_argument(
     dest="likelihood",
     action="store_true",
     help='Maximum likelihood based phylogenic tree')
+parser.add_argument(
+    '-a',
+    dest="allcalled",
+    action="store_true",
+    help='Mode is "all"')
 parser.add_argument(
     '-t', '--debug',
     dest="debug",
@@ -118,13 +123,6 @@ def decorate_tree(treepath, mode):
     except NewickError as e:
         exiting("Couldn't open {0}".format(treepath))
 
-    # open database
-    db_path = os.path.join(bdir, "isolates.{0}.db{1}".format(mode, suffix))
-    #print(db_path)
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = 1")
-    cur = conn.cursor()
-
     # go through the tree and check for clusters in db
     full_tree = tree.copy()
     for node in tree.traverse():
@@ -136,13 +134,11 @@ def decorate_tree(treepath, mode):
                 oriNode = homNode.add_child(name=node.name, dist=0)
                 for rec in records:
                     isoNode = homNode.add_child(name="*{}".format(rec[0]), dist=0)
-    conn.close()
 
     outpath = os.path.join(bdir, "_tree", "{0}_{1}_{2}.newick{3}".format(mode, method, ctime, suffix))
     full_tree.write(format=0, outfile=outpath)
     if args.debug:
         print(full_tree)
-
     return
 
 def decode_nw_file(nw_file):
@@ -164,7 +160,6 @@ def decode_nw_file(nw_file):
         nw_f.write(newick_str)
 
     return
-
 def print2msa(msafile, fsafilename, seqname):
     print(">{0}".format(seqname), file=msafile)
     entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fsafilename)])
@@ -287,12 +282,24 @@ suffix = ""
 if args.debug:
     suffix = ".t"
 
+mode = 'pw'
+if args.allcalled:
+    mode = 'all'
+
 treefilename = None
+
+# open database
+db_path = os.path.join(bdir, "isolates.{0}.db{1}".format(mode, suffix))
+#print(db_path)
+conn = sqlite3.connect(db_path)
+conn.execute("PRAGMA foreign_keys = 1")
+cur = conn.cursor()
+
 if args.distance:
     method = "dist"
     matpath = input_validation(args.distmat)
-    mode = os.path.split(matpath)[1].split(".")[1]
     wdir = change2subdir(mode)
+    matpath = os.path.relpath(matpath)
     treefilename = "outtree"
 
     inputstr = "{0}\nY\n".format(matpath)
@@ -313,9 +320,25 @@ if args.distance:
 elif args.likelihood:
     method = "ml"
     matpath = input_validation(args.distmat)
-    filepath = input_validation(args.filelist)
-    mode = os.path.split(filepath)[1].split(".")[1]
+    if args.filelist == '-':
+        templ = os.path.basename(bdir)
+        isolates = ["pt_{}.fa".format(templ)]
+        cur.execute('''SELECT sra_id from sequences where repr_id is NULL and sra_id!='template';''')
+        rows = cur.fetchall()
+        for r in rows:
+            isolates.append("{}.fa".format(r[0]))
+    else:
+        filepath = input_validation(args.filelist)
+
+        try:
+            pathfile = open(filepath, "r")
+            isolates = pathfile.readlines()
+            pathfile.close()
+        except IOError as e:
+            exiting("File couldn't be opened, {0}.".format(e))
+
     wdir = change2subdir(mode)
+    matpath = os.path.relpath(matpath)
     treefilename = "sequences.fa.treefile"
 
     # get the NJ tree made
@@ -334,23 +357,20 @@ elif args.likelihood:
 
     # make the maxL tree
     try:
-        pathfile = open(filepath, "r")
         msafile = open("sequences.fa", "w")
     except IOError as e:
         exiting("File couldn't be opened, {0}.".format(e))
 
     # 1st seq is template -> change name!
-    line = pathfile.readline()
-    print2msa(msafile, os.path.join(bdir, line.strip()), "template")
+    print2msa(msafile, os.path.join(bdir, isolates[0].strip()), "template")
     seq_count = 1
-    for line in pathfile:
-        longpath = os.path.join(bdir, line.strip())
-        seqname = line.split(".")[0]
+    for iso in isolates[1:]:
+        longpath = os.path.join(bdir, iso.strip())
+        seqname = iso.split(".")[0]
         if os.path.isfile(longpath):
             print2msa(msafile, longpath, seqname)
             seq_count += 1
             # high five if nothing is wrong
-    pathfile.close()
     msafile.close()
 
     # construct iqtree cmd
@@ -372,7 +392,9 @@ else:
 
 
 fulltree_file = os.path.join(bdir, "_tree", "{0}_{1}_{2}.newick{3}".format(mode, method, ctime, suffix))
-if os.path.exists(os.path.join(bdir, "clusters.{0}.pic{1}".format(mode, suffix))):
+cur.execute('''SELECT count(*) from sequences where repr_id is not Null;''')
+numb = cur.fetchone()
+if numb and numb[0]:
     decorate_tree(os.path.join(wdir, treefilename), mode)
 else:
     try:
@@ -389,8 +411,10 @@ if args.likelihood:
     except OSError:
         pass
 
+conn.close()
 timing("# Tree decorated.")
 
+# make a tree with metadata
 if not args.debug:
     conn = sqlite3.connect(MAIN_SQL_DB)
     conn.execute("PRAGMA foreign_keys = 1")

@@ -122,6 +122,7 @@ if not os.path.isdir(bdir):
 MAP = os.path.join(bdir, "scripts/assimpler_pipeline.py")
 DIST = os.path.join(bdir, "scripts/distance_batch.py")
 PTREE = os.path.join(bdir, "scripts/tree_cobbler.py")
+MAIN_SQL_DB = os.path.join(bdir, "results_db/evergreen.db")
 
 # Process collection file
 inputs = []
@@ -146,34 +147,28 @@ else:
 
 # db management
 suffix = ""
-if args.debug:
+if args.debug and os.path.exists(db_path):
     suffix = ".t"
+    try:
+        shutil.copy(db_path, db_path + suffix)
+        db_path = db_path + suffix
+    except OSError:
+        exiting("Couldnt copy the temp database.")
 
-    if os.path.exists(db_path):
-        try:
-            shutil.copy(db_path, db_path + suffix)
-        except OSError:
-            exiting("Couldnt copy the temp database.")
+iso_conn = sqlite3.connect(db_path)
+iso_conn.execute("PRAGMA foreign_keys = 1")
+iso_cur = iso_conn.cursor()
 
-db_path = db_path + suffix
-
-conn = sqlite3.connect(db_path)
-conn.execute("PRAGMA foreign_keys = 1")
-cur = conn.cursor()
-
-cur.execute('''CREATE TABLE IF NOT EXISTS sequences
+iso_cur.execute('''CREATE TABLE IF NOT EXISTS sequences
     (sra_id TEXT PRIMARY KEY,
     repr_id TEXT DEFAULT NULL,
     distance INTEGER DEFAULT NULL)''')
 
 # if table is newly created, then the reference sequence should be placed in it
-cur.execute('''SELECT count(*) FROM sequences''')
-if not cur.fetchone()[0]:
-    cur.execute('''INSERT INTO sequences (sra_id) VALUES (?)''', ('template',))
-    conn.commit()
-
-conn.close()
-
+iso_cur.execute('''SELECT count(*) FROM sequences''')
+if not iso_cur.fetchone()[0]:
+    iso_cur.execute('''INSERT INTO sequences (sra_id) VALUES (?)''', ('template',))
+    iso_conn.commit()
 
 # only the template is in the folder
 if not os.path.exists(hrfilename):
@@ -226,6 +221,40 @@ newfilename = "{0}/new_isolates.lst".format(wdir)
 with open(newfilename, "w") as ofile:
     print("\n".join(cons_files), file=ofile)
 
+# TODO DONE insert or ignore those isolates with repr_id = N to the db that have os.path.getsize(consensus_file) > 0
+new_cons = []
+templ_update = []
+runs_update = []
+for filenm in cons_files:
+    full_cons_path = os.path.join(wdir, filenm)
+    if os.path.exists(full_cons_path) and os.path.getsize(full_cons_path) > 0:
+        new_cons.append((filenm[:-3], 'N'))
+    else:
+        templ_update.append((0, filenm[:-3], template))
+        runs_update.append((2, filenm[:-3]))
+
+if new_cons:
+    iso_cur.executemany('''INSERT OR IGNORE INTO sequences (sra_id, repr_id) VALUES (?,?);''', new_cons)
+    iso_conn.commit()
+
+if templ_update:
+    # open database
+    # MAIN
+    conn = sqlite3.connect(MAIN_SQL_DB)
+    conn.execute("PRAGMA foreign_keys = 1")
+    conn.commit()
+    cur = conn.cursor()
+    # reach back and update runs table in the main DB to 2 as non-included
+    try:
+        cur.executemany('''UPDATE templates SET qc_pass=? WHERE sra_id=? and template=?''', templ_update)
+        cur.executemany('''UPDATE runs SET included=? WHERE sra_id=?''', runs_update)
+        conn.commit()
+    except sqlite3.Error:
+        print("Warning: SQL update failed.", file=sys.stderr)
+    conn.close()
+
+# TODO DONE change to '-' instead of filelist
+
 # call to the distance and hr reduction script
 # /data/evergreen/scripts/distance_batch \
 # -hr /data/evergreen/results_db/Salmonella_enterica_serovar_Enteritidis_P125109_uid59247/non-redundant.all.lst \
@@ -234,9 +263,9 @@ with open(newfilename, "w") as ofile:
 # -m /data/evergreen/results_db/Salmonella_enterica_serovar_Enteritidis_P125109_uid59247/dist.mat \
 # -a --vcf -d
 if args.allcalled:
-    cmd = "{0} -hr {1} -n {2} -o {3} -a".format(DIST, hrfilename, newfilename, wdir)
+    cmd = "{0} -hr {1} -n - -o {3} -a".format(DIST, "-", newfilename, wdir)
 else:
-    cmd = "{0} -hr {1} -n {2} -o {3}".format(DIST, hrfilename, newfilename, wdir)
+    cmd = "{0} -hr {1} -n - -o {3}".format(DIST, "-", newfilename, wdir)
 
 if args.debug:
     cmd += " -d"
@@ -266,14 +295,20 @@ else:
 
 
 # only if more than 3 seqs in non-redundant.*.lst !
-wc_results = subprocess.check_output(["wc", "-l", hrfilename])
-non_redundant_no = int(wc_results.split()[0])
+# TODO DONE reimplement this as a db check
+iso_cur.execute('''SELECT count(*) from sequences where repr_id is Null;''')
+non_redundant_no = iso_cur.fetchone()[0]
+iso_conn.close()
 if non_redundant_no > 2:
     add_opt = ""
     if args.debug:
         add_opt = "-t"
     if args.keep:
         add_opt += " -k"
+    
+    if args.allcalled:
+        add_opt += " -a"
+
 
     # allow both methods to be run: fork a distance and a ML tree maker
     procs = []
@@ -283,7 +318,7 @@ if non_redundant_no > 2:
             print("# Tree command: ", cmd)
         procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
     if args.likelihood and non_redundant_no > 3 and non_redundant_no < 650: # IqTree only bootstraps nlt 4 sequences
-        cmd = "{0} -b {1} -f {2} {3} -l -m {4}".format(PTREE, wdir, hrfilename, add_opt, matfilename)
+        cmd = "{0} -b {1} -f {2} {3} -l -m {4}".format(PTREE, wdir, "-", add_opt, matfilename)
         if args.debug:
             print("# Tree command: ", cmd)
         procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))

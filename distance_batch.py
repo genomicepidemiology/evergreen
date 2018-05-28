@@ -1,22 +1,33 @@
 #!/usr/bin/env python2.7
 from __future__ import print_function
 import sys, time
-import os
+import os, gc
 import math
 import numpy as np
 import array
 import argparse
 from operator import itemgetter
 import gzip
-import pickle
-from joblib import Parallel, delayed
+import tempfile
+from joblib import Parallel, delayed, load, dump
 import sqlite3
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 # quick hack
 base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
-NO_JOBS = 8
+no_jobs = 20
+MEM_AVAIL = 80 # Gb
 THRESHOLD = 10
+
+"""
+Change:
+    removed N content test, KMA id% -> not more than 0.15
+    -n - and -hr -: dont uses files, relies on the db
+"""
 
 ############# ITERATORS #############
 def SeqsFromFile(filename, exit_on_err=False):
@@ -142,74 +153,51 @@ def exiting(message):
     print("FAIL", file=sys.stderr)
     sys.exit(1)
 
-def encode_seq_pw(strain):
-   encodedinput = [np.zeros((clen), dtype=np.int8) for clen in clens]
-   non_nuc_mask = [np.zeros((clen), dtype=np.int8) for clen in clens]
-   for j in xrange(len(clens)):
-      for i in xrange(clens[j]):
-         try:
-            encodedinput[j][i] = nuc2num[strain[j][i]]
-         except KeyError:
-            non_nuc_mask[j][i] = 1
-   return encodedinput, non_nuc_mask
+def parallel_opt(no_jobs, tot_len):
+    if slens[1] > 200:
+        no_jobs = int( min(no_jobs, math.floor(MEM_AVAIL * 0.8 / (sum(slens[1]) * tot_len / 10.0**9)) - 1))
+        no_jobs	= max(1, no_jobs)
+    return no_jobs
 
-def encode_seq_all(strain):
-   encodedinput = [np.zeros((clen), dtype=np.int8) for clen in clens]
-   non_nuc_mask = [np.ones((clen), dtype=np.bool) for clen in clens]
-   for j in xrange(len(clens)):
-      for i in xrange(clens[j]):
-         try:
-            encodedinput[j][i] = nuc2num[strain[j][i]]
-         except KeyError:
-            non_nuc_mask[j][i] = False
-   return encodedinput, non_nuc_mask
+def read_encode_univ(filename, tot_len):
+    fp = os.path.join(args.odir, filename)
+    if os.path.exists(fp):
+        entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
+        strain = "".join(entries[0])
+        if tot_len is None:
+            tot_len = len(strain)
 
-# def dist_calc_all(mat1i, iso):
-#    return (np.not_equal(mat1i, iso * np.ones((len(mat1i), len(iso)), np.int8))).sum(1)
+        encodedinput = np.zeros((tot_len), dtype=np.int8)
+        for i in xrange(tot_len):
+            try:
+                encodedinput[i] = nuc2num[strain[i]]
+            except KeyError:
+                pass
+        return encodedinput
+    else:
+        return None
 
-def dist_calc_all(mat1i, mat2i, i, j):
-   return (np.not_equal(mat1i, mat2i[j] * np.ones((slens[0], clens[i]), np.int8))).sum(1)
+def dist_calc_pw(s1, s2, i, S, no_compared_strains):
+    if slens[0] < i + S:
+        S = slens[0] - i
+    dist_t = np.zeros(shape=(no_compared_strains,S), dtype=np.int32)
+    for j in range(S):
+        l = i+j
+        for k in range(no_compared_strains):
+            #print(k,l)
+            dist_t[k,j] = np.not_equal(s1[l,], s2[k,]).sum(0) - np.not_equal(s1[l,]!= 0, s2[k,]!= 0).sum(0)
+    return dist_t
 
-def dist_calc_all_old(mat1i, i, j):
-   return (np.not_equal(mat1i, mat1i[j] * np.ones((slens[0], clens[i]), np.int8))).sum(1)
-
-def dist_calc_pw(inputhrmati, inputnwmati, maskhri, maskni, i, j):
-   # distance between _new_ strain and all old
-   #ones = np.ones((slens[0], clens[i]), dtype=np.int8)
-   dist1 = (np.not_equal(inputhrmati, inputnwmati[j] * np.ones((slens[0], clens[i]), dtype=np.int8))).sum(1)
-   # number of non-corresponding N-s
-   dist2 = (np.not_equal(maskhri, maskni[j] * np.ones((slens[0], clens[i]), dtype=np.int8))).sum(1)
-   return np.array(dist1 - dist2)
-
-def dist_calc_pw_old(inputhrmati, maski, i, j):
-   # distance between one _old_ strain and all old !!!!
-   # ones = np.ones((slens[0], clens[i]), dtype=np.int8)
-   dist1 = (np.not_equal(inputhrmati, inputhrmati[j] * np.ones((slens[0], clens[i]), dtype=np.int8))).sum(1)
-   # number of non-corresponding N-s
-   dist2 = (np.not_equal(maski, maski[j] * np.ones((slens[0], clens[i]), dtype=np.int8))).sum(1)
-   return np.array(dist1 - dist2)
-
-def remain_len(i, j, ones, mask):
-   # calculate the remaining length for the two seqs for this chromosome
-   # sum([clens[chr] - np.logical_or( arr1[chr], arr2[chr]).sum(1) for chr in [0,1]]) for all chroms
-   return (clens[i] - np.logical_or(mask[0][i], mask[1][i][j] * ones).sum(1))
-
-def remain_len_old(i, j, ones, mask):
-   # calculate the remaining length for the two seqs for this chromosome
-   # sum([clens[chr] - np.logical_or( arr1[chr], arr2[chr]).sum(1) for chr in [0,1]]) for all chroms
-   return (clens[i] - np.logical_or(mask[i], mask[i][j] * ones).sum(1))
-
-
-def n_content(sequences):
-   """Test the sequence for the number of N bases."""
-   t_len = 0
-   n_count = 0.0
-   for chrom in sequences:
-      t_len += len(chrom)
-      n_count += chrom.count("N")
-   if ((n_count / t_len) > 0.100):
-      return True
-   return False
+def dist_calc_all(s1, s2, i, S, no_compared_strains):
+    if slens[0] < i + S:
+        S = slens[0] - i
+    dist_t = np.zeros(shape=(no_compared_strains,S), dtype=np.int32)
+    for j in range(S):
+        l = i+j
+        for k in range(no_compared_strains):
+            #print(k,l)
+            dist_t[k,j] = np.not_equal(s1[l,], s2[k,]).sum(0)
+    return dist_t
 
 def seq_to_homol(cluster):
     """Convert cluster dict to dict of lists."""
@@ -220,72 +208,37 @@ def seq_to_homol(cluster):
 
 def add_clusters(ref, isolates):
     # clusters = { hr-name0 : [ (isolate0, distance), (isolate1, distance), ... ], ... }
+    homolname = None
     if ref[0] == 0:
+        # clustered to an old one
         if ref[1] == 0: # template
             homolname = "template"
         else:
             homolname = oldseqs[ref[1]].split(".")[0]
+
+        iso_cur.execute('''SELECT count(*) from sequences where repr_id=?''', (homolname,))
+        count = iso_cur.fetchone()
+        if count is None:
+            cluster_increase.append((templ, homolname, len(isolates) + 1))
+        else:
+            cluster_increase.append((templ, homolname, len(isolates)))
     else:
+        # clustered to new
         homolname = newseqs[ref[1]].split(".")[0]
-    if clusters.get(homolname) is None:
-        clusters[homolname] = []
+        cluster_increase.append((templ, homolname, len(isolates) + 1))
+
     for ind in isolates:
         isoname = newseqs[ind].split(".")[0]
         if ref[0] == 0:
             dist = dist_old[(ref[1], ind)]
         else:
             dist = dist_new[(ref[1], ind)]
-        if (isoname,dist) not in clusters[homolname]: # we dont want to re-add it
-            clusters[homolname].append((isoname, dist))
         # prepare db insert
-        cluster_insert.append((isoname, homolname, dist))
-    return
-
-def create_vcf(ref, seqs):
-    """Create VCF file from redundant sequences."""
-    #ref: path, vcfname: seqname from path
-
-    date = time.strftime("%Y%m%d")
-    version = "VCFv4.2"
-    source = sys.argv[0].split("/")[-1]
-    if ref[0] == 0:
-        reference = inputhrseq[ref[1]]
-        reffilename = oldseqs[ref[1]]
-    else:
-        reference = inputnewseq[ref[1]]
-        reffilename = newseqs[ref[1]]
-    inputseq = [inputnewseq[x] for x in seqs]
-    inputseqname = [newseqs[x].split(".")[0] for x in seqs]
-    nchrom = len(reference)
-    clens = [len(chrom) for chrom in reference]
-    nseq = len(inputseq)
-
-    vcffiles = []
-    for i, seq in enumerate(inputseq):
-        headertext = []
-        headertext.append("##fileformat={0}".format(version))
-        headertext.append("##source={0}".format(source))
-        headertext.append("##reference={0}".format(os.path.join(args.odir, reffilename)))
-        for i, chrom in enumerate(seq):
-            headertext.append("##contig=<ID={0},length={1}>".format(i+1, clens[i]))
-        headertext.append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO")
-        vcffiles.append(headertext)
-
-    for j in range(nchrom):
-        for k in xrange(clens[j]):
-            for i in xrange(0,nseq):
-                if reference[j][k] != inputseq[i][j][k]:
-                    vcffiles[i].append("{0}\t{1}\t.\t{2}\t{3}\t.\tPASS\t.".format(j, k, reference[j][k], inputseq[i][j][k]))
-
-    for i, vcfname in enumerate(inputseqname):
-        with open(os.path.join(args.odir, vcfname + ".vcf"), "w") as vcffile:
-            print("\n".join(vcffiles[i]), file=vcffile)
-
+        cluster_insert.append((homolname, str(dist), isoname))
     return
 
 # Start time to keep track of progress
 t0 = time.time()
-etta = 0.001
 
 # Parse command line options
 parser = argparse.ArgumentParser(
@@ -295,7 +248,6 @@ parser.add_argument("-n", dest="new", help="read new sequences from", metavar="I
 parser.add_argument("-o", "--outputdir", dest="odir", help="write to DIR", metavar="DIR")
 parser.add_argument("-m", "--outputmat", dest="outputfilenamemat", help="write to OUTMAT", metavar="OUTMAT")
 parser.add_argument("-a", "--allcalled", dest="allcalled", action="store_true", help="Only use positions called in all strains")
-parser.add_argument("-v", "--vcf", dest="vcf", action="store_true", help="Create VCF files from homologous sequences")
 parser.add_argument("-d", "--debug", dest="debug", action="store_true", help="Debug: use .t suffix")
 parser.add_argument("-q", "--quiet", dest="quiet", action="store_true", help="Quiet")
 args = parser.parse_args()
@@ -305,10 +257,8 @@ if args.debug:
     suffix = ".t"
 
 # File with reads
-if args.old is None or args.new is None:
+elif args.old is None or args.new is None:
     exiting('No input filelist was provided')
-elif not os.path.exists(args.old) or not os.path.exists(args.new):
-    exiting('The referred input filelist does not exists')
 
 # path to results dir ../results_db/template/
 if args.odir is None:
@@ -327,87 +277,58 @@ else:
     else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
-
-# New strains
-inputnewseq = []
-inputnewname = []
-inputnewdesc = []
-newseqs = []
-
-templ_update = []
-runs_update = []
-templ = os.path.basename(args.odir)
-
-with open(args.new) as f:
-   for l in f:
-      l = l.strip()
-      if l == "":
-        next #avoid empty line
-      fp = os.path.join(args.odir, l)
-      if os.path.exists(fp) and os.path.getsize(fp) > 0:
-         entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
-         if n_content(entries[0]):
-            print("# {0} entry has too many N calls".format(entries[1][0]), file=sys.stderr)
-            templ_update.append((0, l.split(".")[0], templ))
-            runs_update.append((2, l.split(".")[0]))
-            continue
-         newseqs.append(l)
-         inputnewseq.append(list(entries[0])) #tuple with number of chromosomes
-         #inputnewname.append(list(entries[1]))
-         #inputnewdesc.append(list(entries[2]))
-
-if templ_update:
-    # reach back and update runs table in the main DB to 2 as non-included
-    conn = sqlite3.connect(MAIN_SQL_DB)
-    conn.execute("PRAGMA foreign_keys = 1")
-    conn.commit()
-    cur = conn.cursor()
-    try:
-        cur.executemany('''UPDATE templates SET qc_pass=? WHERE sra_id=? and template=?''', templ_update)
-        cur.executemany('''UPDATE runs SET included=? WHERE sra_id=?''', runs_update)
-        conn.commit()
-        conn.close()
-    except sqlite3.Error:
-        print("Warning: SQL update failed.", file=sys.stderr)
-
-# Exit if no knew
-if len(newseqs) == 0:
-    exiting("No new sequences fullfilled the N-content criterium.")
-
-# homology reduced old isolates
-inputhrseq = []
-inputhrname = []
-inputhrdesc = []
-oldseqs = [] # hr reduced seqs
-# TODO get these from db, where repr_id is NULL
-# change so oldseqs, newseqs is just the id, not the filename!
-
-with open(args.old) as f:
-   for l in f:
-      # First strain should be the the template
-      l = l.strip()
-      if l == "":
-         next #avoid empty line
-      fp = os.path.join(args.odir, l)
-      if os.path.exists(fp):
-         oldseqs.append(l)
-         entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
-         inputhrseq.append(list(entries[0]))
-         #inputhrname.append(list(entries[1]))
-         #inputhrdesc.append(list(entries[2]))
-
-timing("# Read inputfiles from the file lists.")
-# print(oldseqs)
-# print(newseqs)
-
 # open database
+# MAIN
+conn = sqlite3.connect(MAIN_SQL_DB)
+conn.execute("PRAGMA foreign_keys = 1")
+conn.commit()
+cur = conn.cursor()
+
+# for template
 if args.allcalled:
     db_path = os.path.join(args.odir, "isolates.all.db{}".format(suffix))
+    non_red_pic = os.path.join(args.odir, "non-red.all.pic{}".format(suffix))
+    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.all{}.npy".format(suffix))
 else:
     db_path = os.path.join(args.odir, "isolates.pw.db{}".format(suffix))
-conn = sqlite3.connect(db_path)
-conn.execute("PRAGMA foreign_keys = 1")
-cur = conn.cursor()
+    non_red_pic = os.path.join(args.odir, "non-red.pw.pic{}".format(suffix))
+    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.pw{}.npy".format(suffix))
+
+
+iso_conn = sqlite3.connect(db_path)
+iso_conn.execute("PRAGMA foreign_keys = 1")
+iso_cur = iso_conn.cursor()
+
+
+# New strains
+newseqs = []
+templ = os.path.basename(args.odir)
+
+if args.new == "-":
+    # TODO DONE isolates list from db
+    iso_cur.execute('''SELECT sra_id from sequences where repr_id='N';''')
+    rows = iso_cur.fetchall()
+    if rows is not None:
+        for r in rows:
+            fp = os.path.join(args.odir, r[0])
+            newseqs.append("{}.fa".format(r[0]))
+else:
+    try:
+        f = open(args.new, "r")
+    except IOError:
+        exiting("List of new isolates not found.")
+    for l in f:
+        l = l.strip()
+        if l == "":
+            next #avoid empty line
+        fp = os.path.join(args.odir, l)
+        if os.path.exists(fp) and os.path.getsize(fp) > 0:
+            newseqs.append(l)
+    f.close()
+
+# Exit if no new
+if not newseqs:
+    exiting("No new sequences.")
 
 # Define nucleotides as numbers
 nuc2num = {
@@ -434,127 +355,220 @@ nuc2num = {
    'K' : 10
 }
 
-clens = [len(chrom) for chrom in inputhrseq[0]] # Length of chromosomes
-tot_len = sum(clens) #total length of sequences, for the pw calc
-nchrom = len(clens)
-slens = [len(inputhrseq), len(inputnewseq)] # Number of strains in each list
-if not args.quiet:
-    print("# Length of chromosomes %s" %(clens), file=sys.stdout)
-    print("# Number of strains: %s" % (slens), file=sys.stdout)
-inputhrseqmat = []
-inputnewseqmat = []
-non_nuc_masks = []
-mask_nw = []
-mask_hr = []
 
+# homology reduced old isolates
+oldseqs = [] # hr reduced seqs
+# TODO DONE get these from db, where repr_id is NULL
+non_red_seqs = []
+re_calc = False
+# pickled list
+if os.path.exists(non_red_pic):
+    with open(non_red_pic, "rb") as fp:
+        non_red_seqs = pickle.load(fp)
 
-if args.allcalled:
-    for inputseqmat, inputseq, mask in ([inputhrseqmat, inputhrseq, mask_hr], [inputnewseqmat, inputnewseq, mask_nw]):
+# start with the template
+db_seqs = ["pt_{}.fa".format(templ)]
+iso_cur.execute('''SELECT sra_id from sequences where repr_id is NULL and sra_id!='template';''')
+rows = iso_cur.fetchall()
+for r in rows:
+    db_seqs.append("{}.fa".format(r[0]))
 
-        arrays = Parallel(n_jobs=NO_JOBS * 2)(delayed(encode_seq_all)(isolate) for isolate in inputseq)
+# if input file, compare to db and seqs pic
+# order of importance: inputfile > db > pic
+if args.old != '-':
+    try:
+        f = open(args.old, "r")
+    except IOError as e:
+        exiting("Redundant file list not found.")
+    for l in f:
+        l = l.strip()
+        oldseqs.append(l)
+    f.close()
 
-        inputseqmat.extend([np.asarray([item[0][i] for item in arrays]) for i in range(nchrom)])
-        mask.extend([np.asarray([item[1][i] for item in arrays]).all(axis=0) for i in range(nchrom)]) # take AND for mask matrix by evaling if all True
-    non_nuc_masks = [np.logical_and(np.asarray(mask_hr[i]), np.asarray(mask_nw[i])) for i in range(nchrom)] # take AND for the hr and nw chrom arrays
-
+    # not the same as the saved matrix rows
+    if non_red_seqs != oldseqs:
+        re_calc = True
+    else:
+        # an isolate was deleted
+        if len(non_red_seqs) != len(db_seqs):
+            re_calc = True
 else:
-    for inputseqmat, inputseq in ([inputhrseqmat, inputhrseq], [inputnewseqmat, inputnewseq]):
+    # no input file, but there are the pickled ones
+    if not non_red_seqs:
+        # first time template
+        oldseqs = db_seqs
+        re_calc = True
+    else:
+        oldseqs = non_red_seqs
 
-        arrays = Parallel(n_jobs=NO_JOBS * 2)(delayed(encode_seq_pw)(isolate) for isolate in inputseq)
-
-        inputseqmat.extend([np.asarray([item[0][i] for item in arrays]) for i in range(nchrom)])
-        non_nuc_masks.append([np.asarray([item[1][i] for item in arrays]) for i in range(nchrom)])
-
-# free some memory
-if not args.vcf:
-    del inputhrseq
-    del inputnewseq
-    del arrays
-
-timing("# Encoded sequences into numpy array.")
-
-# Calculate pairwise distances
-if not args.allcalled:
-    if slens[0] > 300 or slens[1] > 200:
-        NO_JOBS = int(NO_JOBS / max((float(slens[0])/300),(float(slens[1])/200)))
-else:
-    if slens[0] > 500 or slens[1] > 200:
-        NO_JOBS = int(NO_JOBS / max((float(slens[0])/500),(float(slens[1])/200)))
-
-
-if args.allcalled:
-    # Mask non-nucleotide positions
-    mat1 = [inputhrseqmat[i].T[non_nuc_masks[i]].T for i in xrange(nchrom)]
-    mat2 = [inputnewseqmat[i].T[non_nuc_masks[i]].T for i in xrange(nchrom)]
-    clens = [len(chromosome[0]) for chromosome in mat1]
-    if not args.quiet:
-        print("# Old seqs reduced matrix shape:", [np.shape(mat1[i]) for i in xrange(nchrom)]) #(1, 2, 4606088)
-        print("# New seqs reduced matrix shape:", [np.shape(mat2[i]) for i in xrange(nchrom)])
-
-
-# Calculate genetic distance
-if args.allcalled:
-    df = []
-    for i in xrange(nchrom):
-        dist_arr = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_all)(mat1[i], mat2[i], i, j) for j in xrange(slens[1]))
-        df.append(np.array(dist_arr))
-    dist_o_n = np.array(df).sum(0) # dist_o_n[new, old]
-   #dist = np.asarray([[ 9, 7], [0,  15], [25,  4]]) # for 3 new and 2 old strain
-else:
-    dist_c = []
-    #len_of_pairs_c = []
-    batch_size = NO_JOBS
-    batch_no = int(math.ceil(slens[1] / (float(batch_size))))
-    for i in xrange(nchrom):
-        dist_arr = []
-        for k in xrange(batch_no):
-            end = (k+1) * batch_size
-            if end > slens[1]:
-                end = slens[1]
-            distance_batch = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_pw)(inputhrseqmat[i], inputnewseqmat[i], non_nuc_masks[0][i], non_nuc_masks[1][i], i, j) for j in xrange(k * batch_size, end))
-            dist_arr += distance_batch
-        dist_c.append(np.array(dist_arr))
-    dist_o_n = np.array(dist_c).sum(0)
-
-    ## v1.04 of the code, this worked
-    # for i in xrange(nchrom): # go over chroms
-    #     # for each new strain
-    #     dist_arr = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_pw)(inputhrseqmat[i], inputnewseqmat[i], non_nuc_masks, i, j) for j in xrange(slens[1]))
-    #     dist_c.append(dist_arr)
-    #     #len_arr = Parallel(n_jobs=NO_JOBS, max_nbytes=None)(delayed(remain_len)(i, j, ones, non_nuc_masks) for j in xrange(slens[1]))
-    #     #len_of_pairs_c.append(len_arr)
-    # dist_o_n = np.array(dist_c).sum(0)
-
-    #print(dist_o_n.tolist())
-    #len_o_n = np.array(len_of_pairs_c).sum(0)
-
-# print("Old to new lens:")
-# print(len_o_n)
-# print("Old to new dist:")
-# print(dist_o_n)
-timing("# Calculated pairwise distance from query to all previous mapped seqs")
-
-# Cluster
-
-# find those that cluster to previous strains
-# take the first one, not the closest
-# clustering is done on total num of snps
-clustered_to_old = {} #new_index: old_index
-dist_old = {}
-for i, fromnew in enumerate(dist_o_n):
-    min_dist = THRESHOLD
-    for j, toold in enumerate(fromnew):
-        if toold < min_dist:
-            clustered_to_old[i] = j
-            dist_old[(j, i)] = toold
+# but if it doesnt match the db
+if not re_calc:
+    for iso in oldseqs:
+        if iso not in db_seqs:
+            re_calc = True
+            oldseqs = db_seqs
             break
 
+timing("# Read inputfiles from the file lists.")
+
+#TODO DONE
+slens = [len(oldseqs), len(newseqs)] # Number of strains in each list
+inputhrseqmat = None
+inputnewseqmat = None
+tot_len = None
+
+# load and encode new isolates
+# might not need to be parallel (overhead)
+if slens[1] > 30:
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, None) for isolatefile in newseqs)
+    # dump as a memmap and concat
+    tot_len = np.shape(arrays[0])[0]
+    for i, arr in enumerate(arrays):
+        if i == 0:
+            inputnewseqmat = np.zeros((slens[1], tot_len), dtype=np.int8)
+            inputnewseqmat[0,:] = arr[:]
+        else:
+            inputnewseqmat[i,:] = arr[:]
+    del arrays[:]
+else:
+    for i, isolatefile in enumerate(newseqs):
+        if i == 0:
+            tmp_np = read_encode_univ(isolatefile, tot_len)
+            tot_len = np.shape(tmp_np)[0]
+            inputnewseqmat = np.zeros((slens[1], tot_len), dtype=np.int8)
+            inputnewseqmat[0,:] = tmp_np[:]
+        else:
+            inputnewseqmat[i,:] = read_encode_univ(isolatefile, tot_len)[:]
+
+# save as npy
+np.save(os.path.join(args.odir, "new-matrix.npy"), inputnewseqmat, allow_pickle=True, fix_imports=True)
+
+# load / encode old isolates
+if not re_calc and os.path.exists(hr_matrix_npy):
+    # load into memory
+    inputhrseqmat = np.load(hr_matrix_npy, mmap_mode=None, allow_pickle=True, fix_imports=True)
+else:
+    # read in and encode the seqs in parallel
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, tot_len) for isolatefile in oldseqs)
+    # construct in memory
+    iso_not_found = []
+    for i, arr in enumerate(arrays):
+        if i == 0:
+            # do it in the memory
+            inputhrseqmat = np.zeros(shape=(slens[0],tot_len), dtype=np.int8)
+        if arr is not None:
+            # if the file existed
+            inputhrseqmat[i,:] = arr[:]
+        else:
+            iso_not_found.append(i)
+
+    # house-keeping, removing the sequence where the file was not found
+    if iso_not_found:
+        np.delete(inputhrseqmat, iso_not_found, axis=0)
+        for i in iso_not_found[::-1]:
+            del oldseqs[i]
+    # save as npy
+    np.save(hr_matrix_npy, inputhrseqmat, allow_pickle=True, fix_imports=True)
+
+    del arrays[:]
+
+# sanity check
+if len(oldseqs) != np.shape(inputhrseqmat)[0]:
+    try:
+        os.unlink(hr_matrix_npy)
+    except OSError:
+        pass
+    exiting("Number of hr seqs doesnt agree with matrix shape.")
+
+timing("# Loaded sequence matrices into memory.")
+
+# trunc the allcalled matrices
+m = None
+if args.allcalled:
+    # create the 'all' mask from the arrays
+    m = np.logical_and((inputhrseqmat != 0).all(axis=0), (inputnewseqmat != 0).all(axis=0))
+    inputhrseqmat = inputhrseqmat.T[m].T
+    inputnewseqmat = inputnewseqmat.T[m].T
+
+# conserved positions for both type of distance calculation
+if slens[0] > 1 and slens[1] > 1:
+    m = np.logical_not(np.logical_and(np.all(inputhrseqmat == inputhrseqmat[0,:], axis = 0),np.all(inputnewseqmat == inputnewseqmat[0,:], axis = 0)))
+    inputhrseqmat = inputhrseqmat.T[m].T
+    inputnewseqmat = inputnewseqmat.T[m].T
+
+del m
+
+# update lengths and isolate counts
+slens = [len(oldseqs), len(newseqs)]
+tot_len = np.shape(inputnewseqmat)[1]
+
+
+timing("# Removed non-informative positions from matrices.")
+# print(oldseqs)
+# print(newseqs)
+
+if not args.quiet:
+    print("# Total length: %s" %(tot_len), file=sys.stdout)
+    print("# Number of strains: %s" % (slens), file=sys.stdout)
+
+# print(np.info(inputhrseqmat))
+# print(np.info(inputnewseqmat))
+
+# TODO DONE
+# dump hr array to /dev/shm
+temp_folder = tempfile.mkdtemp(prefix='ever_joblib_', dir='/dev/shm')
+hr_memmap_fn = os.path.join(temp_folder, 'hr_matrix.npy')
+dump(inputhrseqmat, hr_memmap_fn)
+
+# delete from memory, do garbage collection
+del inputhrseqmat
+gc.collect()
+
+hrseqmat_memmap = load(hr_memmap_fn, mmap_mode='r')
+# print(np.info(hrseqmat_memmap))
+timing("# Dumped hr matrix to /dev/shm")
+
+# calculate genetic distance between old and new isolates
+no_jobs = min(slens[0], no_jobs)
+no_jobs = parallel_opt(no_jobs, tot_len)
+batch_size = int(math.ceil(slens[0]/float(no_jobs)))
+dist_calc_func = dist_calc_pw
+if args.allcalled:
+    dist_calc_func = dist_calc_all
+
+dist_arr = Parallel(n_jobs=no_jobs)(delayed(dist_calc_func)(hrseqmat_memmap, inputnewseqmat, i, batch_size, slens[1]) for i in xrange(0,slens[0],batch_size))
+
+# put it together, do a np.where on it
+dist_nw_o = dist_arr[0]
+for np_arr in dist_arr[1:]:
+    dist_nw_o = np.concatenate((dist_nw_o,np_arr), axis=1)
+    #dist = np.asarray([[ 9, 7], [0,  15], [25,  4]]) # for 3 new and 2 old strain
+
+del dist_arr[:]
+
+timing("# Calculated pairwise distance from query to all previous mapped seqs")
+
+# print(dist_nw_o.tolist())
+# collect the old - new clusters
+clustered_to_old = {}
+dist_old = {}
+min_dist = THRESHOLD
+nw, hr = np.where(dist_nw_o < min_dist)
+pre = -1
+for i, hr_index in enumerate(hr):
+    # just take the first hit from the hr-s
+    if nw[i] != pre:
+        clustered_to_old[nw[i]] = hr_index
+        dist_old[(hr_index, nw[i])] = dist_nw_o[nw[i]][hr_index]
+        pre = nw[i]
+
+# print(clustered_to_old)
+# print(dist_old)
 
 # do hobohm1 on the remaining ones
 # take the first hit
 reduced = [] # the new non-homologous seqs
 dist_new = {}
-#len_new = {}
 new_clusters = {} # index : similar to
 non_clustered = [x for x in xrange(slens[1]) if x not in clustered_to_old]
 if len(non_clustered) > 1:
@@ -565,21 +579,14 @@ if len(non_clustered) > 1:
         for j in reduced:
         # calc the distances
             if args.allcalled:
-                pdist = np.array([np.not_equal(mat2[k][i], mat2[k][j]).sum(0) for k in range(nchrom)]).sum(0)
+                pdist = np.not_equal(inputnewseqmat[i,], inputnewseqmat[j,]).sum(0)
             else:
-                pdist = np.array([(np.not_equal(inputnewseqmat[k][i], inputnewseqmat[k][j]).sum(0) - np.not_equal(non_nuc_masks[1][k][i], non_nuc_masks[1][k][j]).sum(0)) for k in range(nchrom)]).sum(0)
-                # total remaining length for these two
-                #len_pw = tot_len - sum([np.logical_or(non_nuc_masks[1][k][i], non_nuc_masks[1][k][j]).sum(0) for k in range(nchrom)])
+                pdist = np.not_equal(inputnewseqmat[i,], inputnewseqmat[j,]).sum(0) - np.not_equal(inputnewseqmat[i,]!= 0, inputnewseqmat[j,]!= 0).sum(0)
 
             dist_new[(i,i)] = 0
             dist_new[(j,j)] = 0
             dist_new[(i,j)] = pdist
             dist_new[(j,i)] = pdist
-            # lengths
-            # len_new[(i,i)] = tot_len
-            # len_new[(j,j)] = tot_len
-            # len_new[(i,j)] = len_pw
-            # len_new[(j,i)] = len_pw
 
             if pdist < mpdist:
                 new_clusters[i] = j
@@ -598,71 +605,31 @@ timing("# Clustered the new isolates.")
 # if more than one old seq then calc distances
 dist_pic_filepath = os.path.join(args.odir, "pairwise.dist.pic")
 if slens[0] > 1:
-    if args.allcalled:
-        # this works as well, but it is slower
-        df = []
-        for i in xrange(nchrom): #mat1 is the reduced old
-            dist_arr = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_all_old)(mat1[i], i, j) for j in xrange(slens[0]))
-            df.append(np.array(dist_arr))
-        dist_o_o = np.array(df).sum(0)
-
-
-        # # lets try dividing it into batches
-        # df = []
-        # batch_size = NO_JOBS
-        # batch_no = int(math.ceil(slens[0] / (float(batch_size))))
-        # for i in xrange(nchrom):
-        #     dist_arr = []
-        #     for k in range(batch_no):
-        #         distance_batch = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_all_old)(mat1, i, j) for j in xrange(k * batch_size, (k+1) * batch_size))
-        #         dist_arr += distance_batch
-        #     df.append(np.array(dist_arr))
-        # dist_o_o = np.array(df).sum(0)
-
-        ## this works as well, but it is slower
-        # df = []
-        # for i, chrom in enumerate(mat1): #mat1 is the reduced old
-        #     dist_arr = Parallel(n_jobs=28, max_nbytes=None)(delayed(dist_calc_all)(mat1[i], iso) for iso in chrom)
-        #     df.append(np.array(dist_arr))
-        # dist_o_o = np.array(df).sum(0)
-
-        matrix = dist_o_o.tolist()
-
+    # get the dist between the old ones from pickle
+    if not args.allcalled and not re_calc and os.path.exists(dist_pic_filepath):
+        with open(dist_pic_filepath, "rb") as picfile:
+            matrix = pickle.load(picfile)
 
     else:
-        # get the dist between the old ones from pickle
-        if os.path.exists(dist_pic_filepath):
-            with open(dist_pic_filepath, "r") as picfile:
-                matrix = pickle.load(picfile)
+        dist_arr = []
+        dist_arr = Parallel(n_jobs=no_jobs)(delayed(dist_calc_func)(hrseqmat_memmap, hrseqmat_memmap, i, batch_size, slens[0]) for i in xrange(0,slens[0],batch_size))
 
-        else:
-            # unless there is no pickle, so if old seqs change, delete to recalc the whole matrix
-            dist_c_old = []
-            #len_of_pairs_c_old = []
-            for i in range(nchrom): # go over chroms
-                # for each old strain
-                dist_arr = Parallel(n_jobs=NO_JOBS)(delayed(dist_calc_pw_old)(inputhrseqmat[i], non_nuc_masks[0][i], i, j) for j in xrange(slens[0]))
-                dist_c_old.append(dist_arr)
-                #len_arr = Parallel(n_jobs=NO_JOBS, max_nbytes=None)(delayed(remain_len_old)(i, j, ones, non_nuc_masks[0]) for j in xrange(slens[0]))
-                #len_of_pairs_c_old.append(len_arr)
-            dist_o_o = np.array(dist_c_old).sum(0)
-            #len_o_o = np.array(len_of_pairs_c_old).sum(0)
-            #print(len_o_o)
-            # len normalized distances
-            # elmeletben oszthatunk nullaval, de pici a valoszinusege, ha nincs vmi elbaszva
-            #matrix = (dist_o_o / len_o_o * 1000000).tolist()
-            matrix = dist_o_o.tolist()
+        # put it together, do a np.where on it
+        dist_o_o = dist_arr[0]
+        for np_arr in dist_arr[1:]:
+            dist_o_o = np.concatenate((dist_o_o,np_arr), axis=1)
+
+        matrix = dist_o_o.tolist()
 
 else: # only one old seq, dist 0
     matrix = [[0]]
 
-#print(matrix)
+# print(matrix)
 timing("# Calculated distances between old sequences.")
 
 # combine all non-redundant into a distance matrix
 seqnames = ["template"]
 seqnames.extend([x.split(".")[0] for x in oldseqs[1:]])
-
 
 orig_rows = len(matrix)
 newm = []
@@ -671,50 +638,19 @@ for i in reduced:
     seqnames.append(newseqs[i].split(".")[0])
     new_row = []
     for r in xrange(orig_rows):
-        matrix[r].append(dist_o_n[i][r])
-        new_row.append(dist_o_n[i][r])
+        matrix[r].append(dist_nw_o[i][r])
+        new_row.append(dist_nw_o[i][r])
     matrix.append(new_row)
 full_rows = len(matrix)
 for i in xrange(orig_rows, full_rows):
     matrix[i].extend(newm[i - orig_rows])
 
-# Normalised pw distance calculation, to 1Mbps
-# orig_rows = len(matrix)
-# newm = []
-# if args.allcalled:
-#     for i in reduced:
-#         newm.append([dist_new[(i,j)] for j in reduced])
-#         seqnames.append(newseqs[i].split(".")[0])
-#         new_row = []
-#         for r in xrange(orig_rows):
-#             matrix[r].append(dist_o_n[i][r])
-#             new_row.append(dist_o_n[i][r])
-#         matrix.append(new_row)
-# else:
-#     for i in reduced:
-#         # corrected dist to original length
-#         newm.append([(float(dist_new[(i,j)]) / len_new[(i,j)] * 1000000) for j in reduced])
-#         seqnames.append(newseqs[i].split(".")[0])
-#         new_row = []
-#         for r in xrange(orig_rows):
-#             matrix[r].append(float(dist_o_n[i][r]) / len_o_n[i][r] * 1000000)
-#             new_row.append(float(dist_o_n[i][r]) / len_o_n[i][r] * 1000000)
-#         matrix.append(new_row)
-# full_rows = len(matrix)
-# for i in xrange(orig_rows, full_rows):
-#     matrix[i].extend(newm[i - orig_rows])
-
 # dump matrix in pickle for pairwise
-# TODO this should be replaced by a dict-dict thing for full flexibility ?
-# or just delete if anything is deleted from db
 if not args.allcalled:
-    # hope that the old files remain available and keep the same order in the input non-redundant list
-    # if not, then the pickle file should be deleted in order to the old-old dists to be re-calculated
+    # if order of files changes, then the old-old dists are re-calculated
     dist_pic_filepath += suffix
-    with open(dist_pic_filepath, "w") as picklingfile:
+    with open(dist_pic_filepath, "wb") as picklingfile:
         pickle.dump(matrix, picklingfile)
-
-
 
 # print dist matrix in phylip
 seqid2name = {}
@@ -735,71 +671,103 @@ with open(os.path.join(args.odir, "seqid2name.pic"), "w") as pf:
 
 timing("# Constructed distance matrix.")
 
-# save hr reduced file paths to file
-hrseqs = oldseqs[1:]
+# TODO try add all new sequences to db
+if args.new != "-":
+    iso_cur.executemany('''INSERT OR IGNORE INTO sequences (sra_id, repr_id) VALUES (?, 'N')''', zip([x.split('.')[0] for x in newseqs],))
+    iso_conn.commit()
+
+# save hr reduced file paths to pickle
+hrseqs_update = []
+
 for i in reduced:
-    hrseqs.append(newseqs[i])
-if args.allcalled:
-    hrfile = open(os.path.join(args.odir,"non-redundant.all.lst{0}".format(suffix)), "w")
-else:
-    hrfile = open(os.path.join(args.odir,"non-redundant.pw.lst{0}".format(suffix)), "w")
-#print("{0}/pt_{1}.fa".format(args.odir, args.template), file=hrfile)
-print(oldseqs[0], file=hrfile) # template is the 1st
-print("\n".join(hrseqs), file=hrfile)
-hrfile.close()
-timing("# Saved new isolates to file.")
+    hrseqs_update.append(newseqs[i].split('.')[0])
+    oldseqs.append(newseqs[i])
+with open(non_red_pic, "wb") as fp:
+    pickle.dump(oldseqs, fp)
 
-# add to sequences db
-cur.executemany('''INSERT OR IGNORE INTO sequences (sra_id) VALUES (?)''', zip([x.split('.')[0] for x in hrseqs],))
+if hrseqs_update:
+    iso_cur.executemany('''UPDATE sequences set repr_id=NULL where sra_id=? and repr_id='N';''', zip(hrseqs_update,))
+    iso_conn.commit()
 
-if args.allcalled:
-    clfilename = os.path.join(args.odir, "clusters.all.pic")
-else:
-    clfilename = os.path.join(args.odir, "clusters.pw.pic")
+timing("# Saved new non-redundant isolates to file.")
 
-clusters = {}
+# re-load full numpy matrices
+inputnewseqmat = np.load(os.path.join(args.odir, "new-matrix.npy"), mmap_mode=None, allow_pickle=True, fix_imports=True)
+
 cluster_insert = []
-if os.path.exists(clfilename):
-    with open(clfilename, 'rb') as pf:
-        clusters = pickle.load(pf)
-
-# make vcf files from the redundant ones and add clusters
+cluster_increase = []
+del_iso = []
+# make clusters
 if clustered_to_old:
     homologous = seq_to_homol(clustered_to_old)
     for key in homologous.keys():
         ref = (0, key)
         add_clusters(ref, homologous.get(key))
-        if args.vcf:
-            create_vcf(ref, homologous.get(key))
+
+    del_iso = clustered_to_old.keys()
 
 if new_clusters:
     homologous = seq_to_homol(new_clusters)
     for key in homologous.keys():
         ref = (1, key)
         add_clusters(ref, homologous.get(key))
-        if args.vcf:
-            create_vcf(ref, homologous.get(key))
-            timing("# Made vcf files.")
 
-clfilename += suffix
-if clusters:
-    with open(clfilename, 'wb') as pf:
-        pickle.dump(clusters, pf)
-    cur.executemany('''INSERT OR IGNORE INTO sequences VALUES (?,?,?)''', cluster_insert)
-    conn.commit()
-    conn.close()
+    del_iso += new_clusters.keys()
 
-    timing("# Pickled redundant sequences.")
+if cluster_insert:
 
-else:
-    if os.path.exists(clfilename) and args.debug:
-        #delete the suffixed pickle if it's there
+    inputnewseqmat = np.delete(inputnewseqmat, del_iso, axis=0)
+
+    iso_cur.executemany('''UPDATE sequences set repr_id=?, distance=? where sra_id=? and repr_id='N';''', cluster_insert)
+    iso_conn.commit()
+    iso_conn.close()
+
+    timing("# Saved clusters to the db.")
+
+    if not args.allcalled and not args.debug:
+        # add cluster size changes to db
+        # make table for the cluster_sizes
+        cur.execute('''CREATE TABLE IF NOT EXISTS clusters
+            (db_id INTEGER PRIMARY KEY,
+            template TEXT,
+            repr_id TEXT,
+            change INTEGER,
+            ctime DATETIME DEFAULT CURRENT_DATE,
+            UNIQUE(template, repr_id, ctime)
+        )''')
+        conn.commit()
+
         try:
-            os.unlink(clfilename)
-        except IOError as e:
-            print("# Warning: {0} couldn't be deleted, {1}".format(clfilename, e), file=sys.stderr)
+            cur.executemany('''INSERT OR IGNORE INTO clusters (template, repr_id, change) VALUES (?,?,?)''', cluster_increase)
+            conn.commit()
+        except sqlite3.Error as e:
+            print("Warning: cluster size SQL update failed.", str(e), file=sys.stderr)
 
 # Finish up
+conn.close()
+
+if inputnewseqmat.shape[0]:
+    inputhrseqmat = np.load(hr_matrix_npy, mmap_mode=None, allow_pickle=True, fix_imports=True)
+    inputhrseqmat = np.concatenate((inputhrseqmat, inputnewseqmat), axis = 0)
+    np.save(hr_matrix_npy, inputhrseqmat, allow_pickle=True, fix_imports=True)
+
+    del inputhrseqmat
+
+    timing("# Updated the redundant sequences npy.")
+
+# cleanup
+del inputnewseqmat
+gc.collect()
+
+try:
+    os.unlink(os.path.join(args.odir, "new-matrix.npy"))
+    os.unlink(hr_memmap_fn)
+    os.rmdir(temp_folder)
+except OSError:
+    import shutil
+    shutil.rmtree(temp_folder)
+
+
 timing("# Distance calculation is finished.")
 print("DONE", file=sys.stderr)
 sys.exit(0)
