@@ -1,4 +1,4 @@
-### Evergreen SNP phylogenetic pipeline for COMPARE hubs
+### Evergreen SNP phylogenetic pipeline
 
 The Evergreen SNP phylogenic pipeline is for the purpose of continuous phylogenetical analysis of bacterial whole-genome sequencing data.  
 Isolates are matched and mapped to complete reference genomes (templates). The resulting consensus sequences are the basis of the SNP based phylogenetic trees, that are inferred for each template. These trees could be completely new, if no isolates were matched previously to that subtype, or could contain isolates that were previously added. Therefore ongoing surveillance is performed just by adding new isolates to the system. There is a clustering step during the distance calculation, where isolates with less than 10 SNPs distance are clustered to a 'cluster representative' isolate. These clustered isolates are denoted with an asterisk (\*) in the phylogenetic trees.  
@@ -31,8 +31,6 @@ tar -xzvf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
 tar -xzvf snp_phylogeny_pipeline.tar.gz -C scripts
 ```
 
-A config file is included for the customisation of temporary directories.
-
 ###### Usage
 
 The data __has to persist__ between runs in the base directory, or at least in *results\_db*, as the sqlite databases and consensus sequence files are kept there. Without those, ongoing monitoring is not possible and trees will be only inferred for the most recent isolates.  
@@ -59,8 +57,7 @@ The *snp_pipeline_job.sh* script shows how the pipeline could be used with Torqu
 ```
 $ scripts/parallel_snp_pipeline.py -h
 usage: parallel_snp_pipeline.py [-h] [-b BASE] [-f ISOLATES_FILE]
-                                [-i COLLECTION_FILE] [-a] [-p] [-D] [-L] [-E]
-                                [-q]
+                                [-i COLLECTION_FILE] [-a] [-p] [-D] [-L] [-q]
 
 Parallel SNP pipeline
 
@@ -74,15 +71,13 @@ optional arguments:
   -p                  Consider the sequences pairwise for Ns
   -D                  Distance based phylogenic tree
   -L                  Maximum likelihood based phylogenic tree
-  -E                  ENA compatible output (tsv + tar.gz)
   -q                  Quiet
 ```
 Example of use with pairwise distance calculation method, which is suited for large numbers of isolates of the same subtype, and both neighbor-joining and maximum likelihood method tree inference.
 ```
 /path/to/install_dir/scripts/parallel_snp_pipeline.py -f <list_of_paths_to_isolates>.iso \
--b /path/to/install_dir -p -D -L -E
+-b /path/to/install_dir -p -D -L
 ```
 
 _Output_  
 The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
-The output with the *-E* option is a tab separated file (.tsv) listing all isolates in the system, together with their templates, phylogenetic tree(s) and distance matrix. The phylogenetic trees are in newick format. The distance matrix is in phylip format. These files are collected in an archive that has the same filename as the tab separated file.
