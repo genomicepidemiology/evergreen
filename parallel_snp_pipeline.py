@@ -129,21 +129,22 @@ def isolates_to_tsv(template, outfile, newicks = "", treetime = "", matrix_filen
     nonred_rows = iso_cur.fetchall()
     for nonred in nonred_rows:
         repr_iso = nonred[0]
+        cl_dist = ""
         if repr_iso:
             # get cluster for that non-redundant
-            iso_cur.execute('''SELECT sra_id from sequences WHERE repr_id=? ORDER BY sra_id;''', (repr_iso,))
+            iso_cur.execute('''SELECT sra_id,distance from sequences WHERE repr_id=? ORDER BY sra_id;''', (repr_iso,))
             clust_rows = iso_cur.fetchall()
             # there migth not be one
             if clust_rows:
                 if repr_iso != "template":
                     # print repr_iso as the cluster rep for the cluster rep for easier filtering
-                    print(repr_iso, repr_iso, template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
+                    print(repr_iso, repr_iso, "", template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
                 for iso in clust_rows:
-                    print(iso[0], repr_iso, template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
+                    print(iso[0], repr_iso, iso[1], template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
             else:
                 if repr_iso != "template":
                     # singletons are not clusters
-                    print(repr_iso, "None", template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
+                    print(repr_iso, "None", "", template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
 
     iso_conn.close()
 
@@ -287,7 +288,7 @@ if args.ena:
         exiting(str(e))
 
     # seq_id   ctime    template    qc_pass    repr_id
-    print("Seq_ID","Repr_ID","Template","Time","Tree(s)", "Matrix", sep="\t", file=tsv_fp)
+    print("Seq_ID","Repr_ID", "Distance", "Template","Time","Tree(s)", "Matrix", sep="\t", file=tsv_fp)
     # get templates with trees of given mode as they could differ
     cur.execute('''SELECT template FROM trees WHERE mode=? GROUP BY template ORDER BY MAX(ctime) DESC;''', (mode,))
     templates = cur.fetchall()
@@ -346,7 +347,7 @@ if args.ena:
     non_inc = cur.fetchall()
     if non_inc is not None:
         for iso in non_inc:
-            print(iso[0], "", "", "", "",  "", sep="\t", file=tsv_fp)
+            print(iso[0], "", "", "", "", "",  "", sep="\t", file=tsv_fp)
 
     conn.close()
     tsv_fp.close()
