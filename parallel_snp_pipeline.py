@@ -130,15 +130,20 @@ def isolates_to_tsv(template, outfile, newicks = "", treetime = "", matrix_filen
     for nonred in nonred_rows:
         repr_iso = nonred[0]
         if repr_iso:
-            if repr_iso != "template":
-                print(repr_iso, "None", template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
             # get cluster for that non-redundant
             iso_cur.execute('''SELECT sra_id from sequences WHERE repr_id=? ORDER BY sra_id;''', (repr_iso,))
             clust_rows = iso_cur.fetchall()
             # there migth not be one
-            if clust_rows is not None:
+            if clust_rows:
+                if repr_iso != "template":
+                    # print repr_iso as the cluster rep for the cluster rep for easier filtering
+                    print(repr_iso, repr_iso, template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
                 for iso in clust_rows:
                     print(iso[0], repr_iso, template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
+            else:
+                if repr_iso != "template":
+                    # singletons are not clusters
+                    print(repr_iso, "None", template, treetime, newicks, matrix_filename, sep="\t", file=outfile)
 
     iso_conn.close()
 
