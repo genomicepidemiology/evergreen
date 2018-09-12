@@ -14,6 +14,9 @@ ETE3 package
 ```
 # Go to wanted location for Evergreen
 cd /path/to/install_dir
+# Clone COMPARE branch
+git clone https://bitbucket.org/genomicepidemiology/evergreen.git -b COMPARE
+mv evergreen scripts
 # Create the subdirectories and databases
 mkdir logs
 mkdir output
@@ -28,7 +31,6 @@ mkdir hr_database/current
 # ~1Gb
 wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/bacteria_kma_hq99_201711.tar.gz
 tar -xzvf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
-tar -xzvf snp_phylogeny_pipeline.tar.gz -C scripts
 ```
 
 A config file is included for the customisation of temporary directories.
