@@ -21,7 +21,6 @@ mv evergreen scripts
 mkdir logs
 mkdir output
 mkdir results_db
-mkdir scripts
 mkdir complete_genomes
 # ~20Gb
 wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/complete_genomes_151217.tar.gz
