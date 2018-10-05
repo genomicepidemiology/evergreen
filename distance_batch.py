@@ -218,8 +218,8 @@ def add_clusters(ref, isolates):
             homolname = oldseqs[ref[1]].split(".")[0]
 
         iso_cur.execute('''SELECT count(*) from sequences where repr_id=?''', (homolname,))
-        count = iso_cur.fetchone()
-        if count is None:
+        count = iso_cur.fetchone()[0]
+        if count == 0:
             cluster_increase.append((templ, homolname, len(isolates) + 1))
         else:
             cluster_increase.append((templ, homolname, len(isolates)))
