@@ -9,6 +9,7 @@ import argparse
 from operator import itemgetter
 import gzip
 import tempfile
+from multiprocessing import cpu_count
 from joblib import Parallel, delayed, dump, load
 import sqlite3
 try:
@@ -278,6 +279,9 @@ else:
         outputmat = args.outputfilenamemat
     else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
+
+# adjust the parallel processes to the available cpus
+no_jobs = min(no_jobs, cpu_count())
 
 # open database
 # MAIN
