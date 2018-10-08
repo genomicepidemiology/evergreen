@@ -290,41 +290,45 @@ if args.ena:
     # seq_id   ctime    template    qc_pass    repr_id
     print("Seq_ID","Repr_ID", "Distance", "Template","Time","Tree(s)", "Matrix", sep="\t", file=tsv_fp)
     # get templates with trees of given mode as they could differ
-    cur.execute('''SELECT template FROM trees WHERE mode=? GROUP BY template ORDER BY MAX(ctime) DESC;''', (mode,))
-    templates = cur.fetchall()
-    # get isolates in the trees
-    if templates is not None:
-        for row in templates:
-            # tree info
-            templ = row[0]
-            cur.execute('''SELECT ctime,nw_path from trees WHERE template=? and mode=? ORDER BY ctime DESC;''', (templ,mode))
-            ctime = ""
-            trees = []
-            tree_rows = cur.fetchall()
-            if tree_rows is not None:
-                for tr in tree_rows:
-                    #  ctime then tree path
-                    if not ctime:
-                        ctime = tr[0].split()[0]
-                    # append just the filename
-                    trees.append(os.path.basename(tr[1]))
-                    # copy tree to be zipped
-                    try:
-                        shutil.copy(
-                        tr[1],
-                        os.path.join(run_output_path, trees[-1])
-                        )
-                    except:
-                        exiting("Tree couldn't be copied.")
+    try:
+        cur.execute('''SELECT template FROM trees WHERE mode=? GROUP BY template ORDER BY MAX(ctime) DESC;''', (mode,))
+    except sqlite3.OperationalError:
+        pass
+    else:
+        templates = cur.fetchall()
+        # get isolates in the trees
+        if templates is not None:
+            for row in templates:
+                # tree info
+                templ = row[0]
+                cur.execute('''SELECT ctime,nw_path from trees WHERE template=? and mode=? ORDER BY ctime DESC;''', (templ,mode))
+                ctime = ""
+                trees = []
+                tree_rows = cur.fetchall()
+                if tree_rows is not None:
+                    for tr in tree_rows:
+                        #  ctime then tree path
+                        if not ctime:
+                            ctime = tr[0].split()[0]
+                        # append just the filename
+                        trees.append(os.path.basename(tr[1]))
+                        # copy tree to be zipped
+                        try:
+                            shutil.copy(
+                            tr[1],
+                            os.path.join(run_output_path, trees[-1])
+                            )
+                        except:
+                            exiting("Tree couldn't be copied.")
 
-            # TODO DONE decode and copy matrix
-            zipped_matrix_filename = ""
-            if os.path.exists(distmat_path.format(templ)) and os.path.exists(seq2name_path.format(templ)):
-                zipped_matrix_filename = "{0}_{1}.mat".format(templ, mode)
-                with open(os.path.join(run_output_path, zipped_matrix_filename), "w") as mat_p:
-                    print(decode_dist_matrix(seq2name_path.format(templ), distmat_path.format(templ)), file=mat_p)
+                # TODO DONE decode and copy matrix
+                zipped_matrix_filename = ""
+                if os.path.exists(distmat_path.format(templ)) and os.path.exists(seq2name_path.format(templ)):
+                    zipped_matrix_filename = "{0}_{1}.mat".format(templ, mode)
+                    with open(os.path.join(run_output_path, zipped_matrix_filename), "w") as mat_p:
+                        print(decode_dist_matrix(seq2name_path.format(templ), distmat_path.format(templ)), file=mat_p)
 
-            isolates_to_tsv(template = templ, outfile = tsv_fp, newicks = " ".join(trees), treetime = ctime,  matrix_filename = zipped_matrix_filename)
+                isolates_to_tsv(template = templ, outfile = tsv_fp, newicks = " ".join(trees), treetime = ctime,  matrix_filename = zipped_matrix_filename)
 
     # templates where < 3 isolates thus no trees
     cur.execute('''SELECT distinct(template) from templates WHERE template NOT IN (SELECT template FROM trees WHERE mode=? GROUP BY template);''', (mode,))
