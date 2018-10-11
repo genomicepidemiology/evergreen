@@ -161,8 +161,8 @@ def parallel_opt(no_jobs, tot_len):
         no_jobs	= max(1, no_jobs)
     return no_jobs
 
-def read_encode_univ(filename, tot_len):
-    fp = os.path.join(args.odir, filename)
+def read_encode_univ(filename, tot_len, odir = args.odir):
+    fp = os.path.join(odir, filename)
     if os.path.exists(fp):
         entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
         strain = "".join(entries[0])
