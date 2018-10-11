@@ -331,20 +331,24 @@ if args.ena:
                 isolates_to_tsv(template = templ, outfile = tsv_fp, newicks = " ".join(trees), treetime = ctime,  matrix_filename = zipped_matrix_filename)
 
     # templates where < 3 isolates thus no trees
-    cur.execute('''SELECT distinct(template) from templates WHERE template NOT IN (SELECT template FROM trees WHERE mode=? GROUP BY template);''', (mode,))
-    minor_templates = cur.fetchall()
-    if minor_templates is not None:
-        for row in minor_templates:
-            templ = row[0]
+    try:
+        cur.execute('''SELECT distinct(template) from templates WHERE template NOT IN (SELECT template FROM trees WHERE mode=? GROUP BY template);''', (mode,))
+    except sqlite3.OperationalError:
+        pass
+    else:
+        minor_templates = cur.fetchall()
+        if minor_templates is not None:
+            for row in minor_templates:
+                templ = row[0]
 
-            zipped_matrix_filename = ""
-            if os.path.exists(distmat_path.format(templ)) and os.path.exists(seq2name_path.format(templ)):
-                zipped_matrix_filename = "{0}_{1}.mat".format(templ, mode)
-                with open(os.path.join(run_output_path, zipped_matrix_filename), "w") as mat_p:
-                    print(decode_dist_matrix(seq2name_path.format(templ), distmat_path.format(templ)), file=mat_p)
+                zipped_matrix_filename = ""
+                if os.path.exists(distmat_path.format(templ)) and os.path.exists(seq2name_path.format(templ)):
+                    zipped_matrix_filename = "{0}_{1}.mat".format(templ, mode)
+                    with open(os.path.join(run_output_path, zipped_matrix_filename), "w") as mat_p:
+                        print(decode_dist_matrix(seq2name_path.format(templ), distmat_path.format(templ)), file=mat_p)
 
-            if os.path.exists(db_path.format(templ)) and os.path.getsize(db_path.format(templ)):
-                isolates_to_tsv(template = templ, outfile = tsv_fp,  matrix_filename = zipped_matrix_filename)
+                if os.path.exists(db_path.format(templ)) and os.path.getsize(db_path.format(templ)):
+                    isolates_to_tsv(template = templ, outfile = tsv_fp,  matrix_filename = zipped_matrix_filename)
 
     # non-included isolates
     cur.execute('''SELECT sra_id FROM runs WHERE included=0 ORDER BY sra_id ASC;''')
