@@ -211,7 +211,7 @@ J_LIMIT = min(J_LIMIT, len(mapper_cmds))
 # Start assimpler mapper
 if mapper_cmds and __name__ == '__main__':
 
-    p = multiprocessing.Pool(J_LIMIT)
+    p = Pool(J_LIMIT)
     p.map(jobstart_silent, mapper_cmds)
 
 timing("# Mapping done.")
