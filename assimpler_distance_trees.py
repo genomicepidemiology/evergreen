@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import shlex
 from joblib import Parallel, delayed
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, Pool
 import sqlite3
 
 J_LIMIT = int(cpu_count() / 4)
