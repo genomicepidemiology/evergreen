@@ -161,7 +161,7 @@ def parallel_opt(no_jobs, tot_len):
         no_jobs	= max(1, no_jobs)
     return no_jobs
 
-def read_encode_univ(filename, tot_len, odir = args.odir):
+def read_encode_univ(filename, tot_len, odir):
     fp = os.path.join(odir, filename)
     if os.path.exists(fp):
         entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
@@ -424,7 +424,7 @@ tot_len = None
 # load and encode new isolates
 # might not need to be parallel (overhead)
 if slens[1] > 30:
-    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, None) for isolatefile in newseqs)
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, None, args.odir) for isolatefile in newseqs)
     # dump as a memmap and concat
     tot_len = np.shape(arrays[0])[0]
     for i, arr in enumerate(arrays):
