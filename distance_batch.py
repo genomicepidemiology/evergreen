@@ -437,12 +437,12 @@ if slens[1] > 30:
 else:
     for i, isolatefile in enumerate(newseqs):
         if i == 0:
-            tmp_np = read_encode_univ(isolatefile, tot_len)
+            tmp_np = read_encode_univ(isolatefile, tot_len, args.odir)
             tot_len = np.shape(tmp_np)[0]
             inputnewseqmat = np.zeros((slens[1], tot_len), dtype=np.int8)
             inputnewseqmat[0,:] = tmp_np[:]
         else:
-            inputnewseqmat[i,:] = read_encode_univ(isolatefile, tot_len)[:]
+            inputnewseqmat[i,:] = read_encode_univ(isolatefile, tot_len, args.odir)[:]
 
 # save as npy
 np.save(os.path.join(args.odir, "new-matrix.npy"), inputnewseqmat, allow_pickle=True, fix_imports=True)
@@ -453,7 +453,7 @@ if not re_calc and os.path.exists(hr_matrix_npy):
     inputhrseqmat = np.load(hr_matrix_npy, mmap_mode=None, allow_pickle=True, fix_imports=True)
 else:
     # read in and encode the seqs in parallel
-    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, tot_len) for isolatefile in oldseqs)
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, tot_len, args.odir) for isolatefile in oldseqs)
     # construct in memory
     iso_not_found = []
     for i, arr in enumerate(arrays):
