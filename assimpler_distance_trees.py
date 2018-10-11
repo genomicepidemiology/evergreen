@@ -78,7 +78,7 @@ def jobstart_silent(command):
         exiting("Devnull won't open.")
     job = subprocess.call(cmd, stdout=devnull, stderr=devnull)
     devnull.close()
-    return job
+    return
 
 def exiting(message):
     print(message, file=logfile)
@@ -206,13 +206,13 @@ if args.debug:
         print("# 1st mapping command:", mapper_cmds[0])
     print("# number of mapping commands:", len(mapper_cmds))
 
-# Start assimpler mapper
-if mapper_cmds:
-    jobs = Parallel(n_jobs=J_LIMIT)(delayed(jobstart_silent)(cmd) for cmd in mapper_cmds)
+J_LIMIT = min(J_LIMIT, len(mapper_cmds))
 
-    # if mapping unsuccessful the file just won't load in DIST
-    if sum(jobs) != 0:
-        print("Warning: A subprocess was unsuccessful.", file=sys.stderr)
+# Start assimpler mapper
+if mapper_cmds and __name__ == '__main__':
+
+    p = multiprocessing.Pool(J_LIMIT)
+    p.map(jobstart_silent, mapper_cmds)
 
 timing("# Mapping done.")
 
