@@ -272,10 +272,11 @@ elif args.runs_filename is not None:
         for line in fp:
             # sample_id    pathtoread1,pathtoread2
             tmp = line.strip().split("\t")
-            sid = tmp[0]
-            ddir = os.path.dirname(tmp[1].split(",")[0])
-            inputs[sid] = tmp[1].replace(","," ") #/path/to/read_1.fastq.gz /path/to/read_2.fastq.gz
-            runs_insert.append((sid, ddir, tmp[1]))
+            if tmp:
+                sid = tmp[0]
+                ddir = os.path.dirname(tmp[1].split(",")[0])
+                inputs[sid] = tmp[1].replace(","," ") #/path/to/read_1.fastq.gz /path/to/read_2.fastq.gz
+                runs_insert.append((sid, ddir, tmp[1]))
 
 
 else:
