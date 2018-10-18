@@ -17,7 +17,6 @@ DTREE = os.path.join(base_path, "scripts/neighbor")
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
 
 
-
 parser = argparse.ArgumentParser(
     description='Wrapper for the tree infering program for the Evergreen pipeline')
 parser.add_argument(
@@ -290,7 +289,6 @@ treefilename = None
 
 # open database
 db_path = os.path.join(bdir, "isolates.{0}.db{1}".format(mode, suffix))
-#print(db_path)
 conn = sqlite3.connect(db_path)
 conn.execute("PRAGMA foreign_keys = 1")
 cur = conn.cursor()
