@@ -7,6 +7,7 @@ import subprocess
 import shlex
 import shutil
 import glob
+from distutils.spawn import find_executable
 from random import shuffle
 import multiprocessing
 import sqlite3
@@ -125,6 +126,14 @@ pid = os.getpid()
 todaysdate = time.strftime("%d%m%Y")
 # unbuffered output
 os.environ['PYTHONUNBUFFERED'] = '1'
+
+# check for binaries
+if find_executable("kma") is None:
+    exiting("KMA not in path")
+if find_executable("iqtree") is None:
+    exiting("Iqtree not in path")
+if find_executable("neighbor") is None:
+    exiting("Neighbor not in path")
 
 debug_opt = ""
 if args.debug:
