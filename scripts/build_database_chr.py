@@ -143,12 +143,13 @@ for line in lp:
                 print(fn, file=op)
             else:
                 logging("Multiple entries merged: {}".format(fn))
-                pmd = replace_cmd + [fn]
-                kma_entry = subprocess.check_output(pmd)
-                with open("{}.kma".format(fn), "w") as outfile:
-                    outfile.write(kma_entry)
-                print("{}.kma".format(fn), file=op)
-                tmp_files.append("{}.kma".format(fn))
+                if "{}.kma".format(fn) not in tmp_files:
+                    tmp_files.append("{}.kma".format(fn))
+                    pmd = replace_cmd + [fn]
+                    kma_entry = subprocess.check_output(pmd)
+                    with open("{}.kma".format(fn), "w") as outfile:
+                        outfile.write(kma_entry)
+                    print("{}.kma".format(fn), file=op)
 
             # acc, descr_words
             tmp = headers[0][1:].split()
