@@ -12,8 +12,8 @@ from operator import itemgetter
 from ete3 import Tree
 
 base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
-IQTREE = os.path.join(base_path, "scripts/iqtree")
-DTREE = os.path.join(base_path, "scripts/neighbor")
+IQTREE = "iqtree"
+DTREE = "neighbor"
 MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
 
 

@@ -14,6 +14,9 @@ from multiprocessing import cpu_count
 import sqlite3
 
 J_LIMIT = int(cpu_count() / 4)
+MAP = "assimpler_pipeline.py"
+DIST = "distance_batch.py"
+PTREE = "tree_cobbler.py"
 
 """
 Takes: one file with the collected info about the isolates (from kmer_tax)
@@ -24,7 +27,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
    '-b',
    dest="base",
-   default="/data/evergreen",
    help='Base output directory, absolute path')
 parser.add_argument(
     '-i',
@@ -119,9 +121,6 @@ bdir = os.path.realpath(args.base)
 if not os.path.isdir(bdir):
     exiting("Base path is required.")
 
-MAP = os.path.join(bdir, "scripts/assimpler_pipeline.py")
-DIST = os.path.join(bdir, "scripts/distance_batch.py")
-PTREE = os.path.join(bdir, "scripts/tree_cobbler.py")
 MAIN_SQL_DB = os.path.join(bdir, "results_db/evergreen.db")
 
 # Process collection file
@@ -305,7 +304,7 @@ if non_redundant_no > 2:
         add_opt = "-t"
     if args.keep:
         add_opt += " -k"
-    
+
     if args.allcalled:
         add_opt += " -a"
 

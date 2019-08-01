@@ -41,22 +41,18 @@ parser.add_argument(
 parser.add_argument(
     '-o',
     dest="odir",
-    default="/data/evergreen/output",
     help='Output directory')
 parser.add_argument(
     '-db',
     dest="database",
-    default="/data/evergreen/hr_database/current/bacterial_compl_genomes_hq99_k13_ATG",
     help="Database, absolute path")
 parser.add_argument(
     '-f_db',
     dest="folder_database",
-    default="/data/evergreen/hr_database/current/bacteria.folder.pic",
     help="Acc number to folder pickle")
 parser.add_argument(
     '-fa_db',
     dest="fsa_database",
-    default="/data/evergreen/hr_database/current/bacteria.fsa_name.pic",
     help="Acc number to filename pickle")
 parser.add_argument(
     '-wdir',
