@@ -6,9 +6,9 @@ Isolates are matched and mapped to complete reference genomes (templates). The r
 
 ###### Dependencies
 
-Anaconda Python 2.7
-Joblib package
-ETE3 package
+Anaconda Python 2.7  
+Joblib package  
+ETE3 package  
 [KMA](https://bitbucket.org/genomicepidemiology/kma)  
 [IQ-tree](http://www.iqtree.org)  
 [Neighbor from the PHYLIP package](http://evolution.genetics.washington.edu/phylip.html)
