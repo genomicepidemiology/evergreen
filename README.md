@@ -27,11 +27,12 @@ export PATH="${PATH}:${PWD}/evergreen/scripts"
 ```
 # Create Anaconda environment
 conda env create --file evergreen/scripts/environment.yml
+# Start environment
 conda activate evergreen
 ```
 ```
 # Create the subdirectories and databases for analysis
-cd /path/to/directory
+cd /path/to/analysis_dir
 mkdir logs
 mkdir output
 mkdir results_db
@@ -103,5 +104,19 @@ _Output_
 The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
 
 
-###### Test run
-TBA
+###### Test data
+Download test isolates from Ahrenfeldt 2017 and Timme 2018, and create iso file:
+```
+cd /path/to/install_dir/evergreen/test
+wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/evergreen_test_isolates.tar.gz
+tar -xzf evergreen_test_isolates.tar.gz
+# Create iso file
+./proto_iso.sh
+```
+
+Run the test analysis
+```
+cd /path/to/analysis_dir
+parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
+parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
+```
