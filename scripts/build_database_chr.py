@@ -127,7 +127,7 @@ tmp_files = []
 grep_chk = shlex.split('grep "^>"')
 replace_cmd = shlex.split('perl -ne \'if (/^>/ and $. != 1){$_ = "NNNNNNNNNNNN\n"}; print $_;\'')
 for line in lp:
-    fn = line.strip()
+    fn = os.path.realpath(line.strip())
     if not line.isspace() and os.path.exists(fn):
         filename = os.path.basename(fn)
         # scaffold chromosomes if necessary
