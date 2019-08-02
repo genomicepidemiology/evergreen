@@ -5,32 +5,47 @@ Isolates are matched and mapped to complete reference genomes (templates). The r
 [Preprint on BioRxiv](http://biorxiv.org/cgi/content/short/540138v1)
 
 ###### Dependencies
-```
+
 Anaconda Python 2.7
 Joblib package
 ETE3 package
-```
+[KMA](https://bitbucket.org/genomicepidemiology/kma)  
+[IQ-tree](http://www.iqtree.org)  
+[Neighbor from the PHYLIP package](http://evolution.genetics.washington.edu/phylip.html)
+
 
 ###### Installation
 ```
-# Go to wanted location for Evergreen
+# Go to install location
 cd /path/to/install_dir
 # Clone master branch
 git clone https://bitbucket.org/genomicepidemiology/evergreen.git
-mv evergreen scripts
-# Create the subdirectories and databases
+# Add folder to PATH
+export PATH="${PATH}:${PWD}/evergreen/scripts"
+```
+
+```
+# Create Anaconda environment
+conda env create --file evergreen/scripts/environment.yml
+conda activate evergreen
+```
+```
+# Create the subdirectories and databases for analysis
+cd /path/to/directory
 mkdir logs
 mkdir output
 mkdir results_db
 mkdir complete_genomes
-# ~20Gb
-wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/complete_genomes_151217.tar.gz
-tar -xzvf complete_genomes_151217.tar.gz -C complete_genomes
+# ~7Gb of complete chromosomes from NCBI RefSeq
+wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/refseq_complete_chromosomes_151217.tar.gz
+tar -xzf refseq_complete_chromosomes_151217.tar.gz -C complete_genomes
+
+# KMA database with default homology reduction settings
 mkdir hr_database
 mkdir hr_database/current
-# ~1Gb
-wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/bacteria_kma_hq99_201711.tar.gz
-tar -xzvf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
+# run database builder with default settings
+build_database_chr.py -r /path/to/install_dir/evergreen/scripts/refseq_bacteria_2017.lst -o $PWD/hr_database/current
+
 ```
 
 ###### Usage
@@ -38,6 +53,9 @@ tar -xzvf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
 The data __has to persist__ between runs in the base directory, or at least in *results\_db*, as the sqlite databases and consensus sequence files are kept there. Without those, ongoing monitoring is not possible and trees will be only inferred for the most recent isolates.  
 The pipeline was designed for multiprocessing and a computer with at least 8 cores are recommended for use. It determines the number of cpu-s and adjusts the number of parallel processes accordingly.  
 Maximum likelihood method works only on less than 300 non-redundant isolates. Above that only neighbor-joining trees are inferred.
+
+_KMA database and complete genomes folder_  
+The classification database should be under hr_database/current, and that and the complete_genomes directory should be in the same analysis directory. (Symlinking the directories from one central place to different analysis folders is possible.)
 
 _Input_  
 The input file should only contain new isolates. As long as *results\_db* is available with the files from the previous runs, the new isolates will be processed in addition to the previous isolates.  
@@ -83,3 +101,7 @@ Example of use with pairwise distance calculation method, which is suited for la
 
 _Output_  
 The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
+
+
+###### Test run
+TBA
