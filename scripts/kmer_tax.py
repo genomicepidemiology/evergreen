@@ -20,11 +20,8 @@ Obs: Offline version, the db is populated here with runs!!
 NAP = 30
 WAIT = 600
 J_LIMIT = cpu_count()
-base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
-REF_GEN_DIR = os.path.join(base_path, "complete_genomes") #the ref genomes without the plasmids !!!
-MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
-KMA_SHM = os.path.join(base_path, "scripts/kma_shm")
-KMA = os.path.join(base_path, "scripts/kma")
+KMA_SHM = "kma_shm"
+KMA = "kma"
 
 parser = argparse.ArgumentParser(
     description='Wrapper for KMA for the Evergreen pipeline')
@@ -172,7 +169,7 @@ def prepare_tmpl_file(s, i, templ_acc):
                 tmp = templ_acc.split("_")[-3:]
                 templ_acc = "{}_{}.{}".format(tmp[0], tmp[1], tmp[2])
 
-            src_fsa_file = os.path.join(REF_GEN_DIR, fsa_db[templ_acc])
+            src_fsa_file = os.path.join(ref_gen_dir, fsa_db[templ_acc])
             dest_file = os.path.join(todirs[-1], "pt_{0}.fa".format(s))
             shutil.copy(src_fsa_file, dest_file)
 
@@ -184,18 +181,20 @@ def prepare_tmpl_file(s, i, templ_acc):
 t0 = time.time()
 
 # Check db
-if not os.access("{0}.sparse.b".format(args.database), os.R_OK):
+if not os.access("{0}.name".format(args.database), os.R_OK) and not os.access("{0}.name.b".format(args.database), os.R_OK):
     exiting("Database unaccessible.")
 if not os.access(args.folder_database, os.R_OK):
     exiting("Binary for folders unaccessible.")
 
 tmpdir = ""
+shared = False
 if os.environ.get('TMPDIR') is not None:
     tmpdir = os.path.join(os.environ['TMPDIR'], "kma-%s"%(os.getpid()))
     os.mkdir(tmpdir)
 elif os.environ.get('PBS_JOBID') is not None:
     tmpdir = os.path.join("/tmp", "{0}_{1}".format(os.environ['PBS_JOBID'], "kma-%s"%(os.getpid())))
     os.mkdir(tmpdir)
+    shared = True
 else:
     tmpdir = tempfile.mkdtemp()
 
@@ -206,13 +205,16 @@ if args.wdir is not None and os.path.isdir(args.wdir):
     shutil.rmtree(tmpdir)
 if os.path.isdir(args.odir):
     odir = os.path.realpath(args.odir)
-results_dir = os.path.realpath(os.path.join(odir, "../results_db")) # results folder rel. path
+base_path = os.path.dirname(odir)
+results_dir = os.path.join(base_path, "results_db")
+ref_gen_dir = os.path.join(base_path, "complete_genomes") #the ref genomes without the plasmids !!!
+main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
 
 # open sql db to templates
-#print(MAIN_SQL_DB)
+#print(main_sql_db)
 
 #start up the db during first run_id
-conn = sqlite3.connect(MAIN_SQL_DB)
+conn = sqlite3.connect(main_sql_db)
 conn.execute("PRAGMA foreign_keys = 1")
 cur = conn.cursor()
 
@@ -300,6 +302,9 @@ old_templs = []
 kmf_cmds = []
 spa_files = []
 acc_found = set()
+shm = ""
+if shared:
+    shm = " -shm"
 for acc in inputs.keys():
     # don't run kma again if there is a included result from it already
     # obv. it would not be added from q_p normally
@@ -316,8 +321,9 @@ for acc in inputs.keys():
         tax_tsv_path = os.path.join(wdir, "{0}.spa".format(acc))
 
         if not os.path.exists(tax_tsv_path) or not os.path.getsize(tax_tsv_path) > 0:
-            km_cmd = "{0} -i {1} -o {2}/{3} -t_db {4} -Sparse -shm".format(
-            KMA, inputs[acc], wdir, acc, args.database
+
+            km_cmd = "{0} -i {1} -o {2}/{3} -t_db {4} -Sparse{5}".format(
+            KMA, inputs[acc].split(" ")[0], wdir, acc, args.database, shm
             )
             kmf_cmds.append(km_cmd)
 
@@ -331,21 +337,23 @@ for acc in inputs.keys():
 
 # Start kma if it needs to be run
 if kmf_cmds:
-    # load the db into shared memory
-    shm_cmd = "{0} -t_db {1} -Sparse".format(KMA_SHM, args.database)
-    task = jobstart_silent(shm_cmd)
-    if task:
-        exiting("KMA db couldn't be loaded into memory.")
+    if shared:
+        # load the db into shared memory
+        shm_cmd = "{0} -t_db {1} -Sparse".format(KMA_SHM, args.database)
+        task = jobstart_silent(shm_cmd)
+        if task:
+            exiting("KMA db couldn't be loaded into memory.")
 
     jobs = Parallel(n_jobs=J_LIMIT)(delayed(jobstart_safe_n_silent)(cmd) for cmd in kmf_cmds)
     if sum(jobs) != 0:
         print("Warning: A subprocess was unsuccessful.", file=sys.stderr)
 
-    #delete shared mem db
-    shm_cmd += " -destroy"
-    task = jobstart_silent(shm_cmd)
-    if task:
-        exiting("KMA db couldn't be unloaded from memory.")
+    if shared:
+        #delete shared mem db
+        shm_cmd += " -destroy"
+        task = jobstart_silent(shm_cmd)
+        if task:
+            exiting("KMA db couldn't be unloaded from memory.")
 
     timing("# KMA finished running.")
 

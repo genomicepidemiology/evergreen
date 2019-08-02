@@ -145,7 +145,7 @@ if not os.path.isdir(bdir):
     exiting("Base path is required.")
 
 # put scripts folder into path
-if shutil.which(KT) is None or shutil.which(ADT) is None:
+if find_executable(KT) is None or find_executable(ADT) is None:
     script_dir = os.path.dirname(os.path.realpath(__file__))
     os.environ['PATH'] = "{}:{}".format(script_dir,os.environ['PATH'])
 

@@ -11,11 +11,9 @@ import sqlite3
 from operator import itemgetter
 from ete3 import Tree
 
-base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
+
 IQTREE = "iqtree"
 DTREE = "neighbor"
-MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
-
 
 parser = argparse.ArgumentParser(
     description='Wrapper for the tree infering program for the Evergreen pipeline')
@@ -277,6 +275,9 @@ try:
 except:
     exiting("Couldn't change to {0}".format(bdir))
 
+base_path = os.path.dirname(os.path.realpath(bdir))
+main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
+
 suffix = ""
 if args.debug:
     suffix = ".t"
@@ -414,7 +415,7 @@ timing("# Tree decorated.")
 
 # make a tree with metadata
 if not args.debug:
-    conn = sqlite3.connect(MAIN_SQL_DB)
+    conn = sqlite3.connect(main_sql_db)
     conn.execute("PRAGMA foreign_keys = 1")
     conn.commit()
     cur = conn.cursor()

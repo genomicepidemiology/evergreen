@@ -17,9 +17,6 @@ try:
 except ImportError:
     import pickle
 
-# quick hack
-base_path = os.path.dirname(os.path.realpath(__file__)).rsplit("/",1)[0]
-MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
 no_jobs = 20
 MEM_AVAIL = 80 # Gb
 THRESHOLD = 10
@@ -278,12 +275,15 @@ else:
     else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
+base_path = os.path.dirname(os.path.realpath(args.odir))
+main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
+
 # adjust number of jobs
 no_jobs = min(no_jobs, cpu_count)
 
 # open database
 # MAIN
-conn = sqlite3.connect(MAIN_SQL_DB)
+conn = sqlite3.connect(main_sql_db)
 conn.execute("PRAGMA foreign_keys = 1")
 conn.commit()
 cur = conn.cursor()
