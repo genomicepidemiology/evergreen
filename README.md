@@ -9,7 +9,7 @@ Isolates are matched and mapped to complete reference genomes (templates). The r
 Anaconda Python 2.7  
 Joblib package 0.13+  
 ETE3 package 3.0+  
-[KMA](https://bitbucket.org/genomicepidemiology/kma)  
+[KMA 1.1.7](https://bitbucket.org/genomicepidemiology/kma)  
 [IQ-tree 1.6](http://www.iqtree.org)  
 [Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
 
@@ -22,6 +22,12 @@ cd /path/to/install_dir
 git clone https://bitbucket.org/genomicepidemiology/evergreen.git
 # Add folder to PATH
 export PATH="${PATH}:${PWD}/evergreen/scripts"
+
+# Install specific kma version
+git clone https://bitbucket.org/genomicepidemiology/kma.git -b 1.1.7 --single-branch
+cd kma && make
+# Add kma folder to PATH
+export PATH="${PATH}:${PWD}"
 ```
 
 ```
