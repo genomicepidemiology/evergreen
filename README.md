@@ -7,11 +7,11 @@ Isolates are matched and mapped to complete reference genomes (templates). The r
 ###### Dependencies
 
 Anaconda Python 2.7  
-Joblib package  
-ETE3 package  
+Joblib package 0.13+  
+ETE3 package 3.0+  
 [KMA](https://bitbucket.org/genomicepidemiology/kma)  
-[IQ-tree](http://www.iqtree.org)  
-[Neighbor from the PHYLIP package](http://evolution.genetics.washington.edu/phylip.html)
+[IQ-tree 1.6](http://www.iqtree.org)  
+[Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
 
 
 ###### Installation
@@ -27,8 +27,12 @@ export PATH="${PATH}:${PWD}/evergreen/scripts"
 ```
 # Create Anaconda environment
 conda env create --file evergreen/scripts/environment.yml
-# Start environment
+
+# Start environment when running the scripts
 conda activate evergreen
+
+# Stop environment when done
+conda deactivate
 ```
 ```
 # Create the subdirectories and databases for analysis
