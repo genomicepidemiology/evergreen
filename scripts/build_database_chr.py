@@ -139,48 +139,47 @@ for line in lp:
         else:
             headers = out.strip().split("\n")
             entry_num = len(headers)
-            if entry_num == 1:
-                print(fn, file=op)
-            else:
-                logging("Multiple entries merged: {}".format(fn))
-                if "{}.kma".format(fn) not in tmp_files:
-                    tmp_files.append("{}.kma".format(fn))
-                    pmd = replace_cmd + [fn]
-                    kma_entry = subprocess.check_output(pmd)
-                    with open("{}.kma".format(fn), "w") as outfile:
-                        outfile.write(kma_entry)
-                    print("{}.kma".format(fn), file=op)
-
             # acc, descr_words
             tmp = headers[0][1:].split()
-
-            # Create file name pickle
-            genome_db[tmp[0]] = filename
-
-            # Create folder names from fasta headers
-            # strip the end of description
-            orgn = []
-            for w in tmp[1:]:
-                if w in ["complete", "chromosome", "genome", "DNA"]:
-                    break
-                else:
-                    orgn.append(w.strip())
-            if not orgn: #starts with the filter words
-                for w in tmp[1:]:
-                    if w not in ["complete", "chromosome", "genome", "sequence", "DNA", "1", "2", "I", "II"]:
-                        orgn.append(w)
-            # remove comma
-            if orgn[-1][-1] == ",":
-                orgn[-1] = orgn[-1][:-1]
-
-            orgname = " ".join(orgn)
-            # create folder name by adding accession to the end
-            foldername = compress_folder_name("{0}_{1}".format(orgname, tmp[0]).translate(foldername_trans))
-
             if tmp[0] not in tax_db:
+                if entry_num == 1:
+                    print(fn, file=op)
+                else:
+                    logging("Multiple entries merged: {}".format(fn))
+                    if "{}.kma".format(fn) not in tmp_files:
+                        tmp_files.append("{}.kma".format(fn))
+                        pmd = replace_cmd + [fn]
+                        kma_entry = subprocess.check_output(pmd)
+                        with open("{}.kma".format(fn), "w") as outfile:
+                            outfile.write(kma_entry)
+                        print("{}.kma".format(fn), file=op)
+
+
+                # Create file name pickle
+                genome_db[tmp[0]] = filename
+
+                # Create folder names from fasta headers
+                # strip the end of description
+                orgn = []
+                for w in tmp[1:]:
+                    if w in ["complete", "chromosome", "genome", "DNA"]:
+                        break
+                    else:
+                        orgn.append(w.strip())
+                if not orgn: #starts with the filter words
+                    for w in tmp[1:]:
+                        if w not in ["complete", "chromosome", "genome", "sequence", "DNA", "1", "2", "I", "II"]:
+                            orgn.append(w)
+                # remove comma
+                if orgn[-1][-1] == ",":
+                    orgn[-1] = orgn[-1][:-1]
+
+                orgname = " ".join(orgn)
+                # create folder name by adding accession to the end
+                foldername = compress_folder_name("{0}_{1}".format(orgname, tmp[0]).translate(foldername_trans))
                 tax_db[tmp[0]] = foldername
             else:
-                logging("Double accession: {}".format(tmp[0]))
+                logging("Double accession skipped: {}".format(tmp[0]))
 lp.close()
 op.close()
 
