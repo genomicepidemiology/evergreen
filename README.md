@@ -115,7 +115,7 @@ The default output is a list of templates and corresponding newick trees that we
 
 
 ###### Test data
-Download test isolates from Ahrenfeldt 2017 and Timme 2018, and create iso file:
+Download test isolates from [Ahrenfeldt 2017](https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-3407-6) and [Timme 2017] (https://peerj.com/articles/3893/), and create iso file:
 ```
 cd /path/to/install_dir/evergreen/test
 wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/evergreen_test_isolates.tar.gz
@@ -130,3 +130,9 @@ cd /path/to/analysis_dir
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 ```
+###### References
+- Ahrenfeldt, J. et al. Bacterial whole genome-based phylogeny: construction of a new benchmarking dataset and assessment of some existing methods. BMC Genomics 18, 19 (2017).
+- Clausen, P. T. L. C., Aarestrup, F. M. & Lund, O. Rapid and precise alignment of raw reads against redundant databases with KMA. BMC Bioinformatics 19, 307 (2018).
+- Huerta-Cepas, J. et al. ETE 3: Reconstruction, Analysis, and Visualization of Phylogenomic Data. Mol. Biol. Evol. 33, 1635–1638 (2016).
+- Nguyen, L.-T., Schmidt, H. A., von Haeseler, A. & Minh, B. Q. IQ-TREE: a fast and effective stochastic algorithm for estimating maximum-likelihood phylogenies. Mol. Biol. Evol. 32, 268–74 (2015).
+- Timme, R. E. et al. Benchmark datasets for phylogenomic pipeline validation, applications for foodborne pathogen surveillance. PeerJ 5, e3893 (2017).
