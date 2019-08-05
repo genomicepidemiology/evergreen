@@ -4,7 +4,7 @@ The Evergreen SNP phylogenic pipeline is for the purpose of continuous phylogene
 Isolates are matched and mapped to complete reference genomes (templates). The resulting consensus sequences are the basis of the SNP based phylogenetic trees, that are inferred for each template. These trees could be completely new, if no isolates were matched previously to that subtype, or could contain isolates that were previously added. Therefore ongoing surveillance is performed just by adding new isolates to the system. There is a clustering step during the distance calculation, where isolates with less than 10 SNPs distance are clustered to a 'cluster representative' isolate. These clustered isolates are denoted with an asterisk (\*) in the phylogenetic trees.  
 [Preprint on BioRxiv](http://biorxiv.org/cgi/content/short/540138v1)
 
-##### Dependencies
+###### Dependencies
 
 Anaconda Python 2.7  
 Joblib package 0.13+  
@@ -14,7 +14,7 @@ ETE3 package 3.0+
 [Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
 
 
-##### Installation
+###### Installation
 ```
 # Go to install location
 cd /path/to/install_dir
@@ -59,7 +59,7 @@ build_database_chr.py -r /path/to/install_dir/evergreen/scripts/refseq_bacteria_
 
 ```
 
-##### Usage
+###### Usage
 
 The data __has to persist__ between runs in the base directory, or at least in *results\_db*, as the sqlite databases and consensus sequence files are kept there. Without those, ongoing monitoring is not possible and trees will be only inferred for the most recent isolates.  
 The pipeline was designed for multiprocessing and a computer with at least 8 cores are recommended for use. It determines the number of cpu-s and adjusts the number of parallel processes accordingly.  
@@ -114,7 +114,7 @@ _Output_
 The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
 
 
-##### Test data
+###### Test data
 Download test isolates from [Ahrenfeldt 2017](https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-3407-6) and [Timme 2017] (https://peerj.com/articles/3893/), and create iso file:
 ```
 cd /path/to/install_dir/evergreen/test
@@ -130,14 +130,14 @@ cd /path/to/analysis_dir
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 ```
-##### References
+###### References
 - Ahrenfeldt, J. et al. Bacterial whole genome-based phylogeny: construction of a new benchmarking dataset and assessment of some existing methods. BMC Genomics 18, 19 (2017).
 - Clausen, P. T. L. C., Aarestrup, F. M. & Lund, O. Rapid and precise alignment of raw reads against redundant databases with KMA. BMC Bioinformatics 19, 307 (2018).
 - Huerta-Cepas, J. et al. ETE 3: Reconstruction, Analysis, and Visualization of Phylogenomic Data. Mol. Biol. Evol. 33, 1635–1638 (2016).
 - Nguyen, L.-T., Schmidt, H. A., von Haeseler, A. & Minh, B. Q. IQ-TREE: a fast and effective stochastic algorithm for estimating maximum-likelihood phylogenies. Mol. Biol. Evol. 32, 268–74 (2015).
 - Timme, R. E. et al. Benchmark datasets for phylogenomic pipeline validation, applications for foodborne pathogen surveillance. PeerJ 5, e3893 (2017).
 
-##### License  
+###### License  
 Copyright (c) 2017-2019, Judit Szarvas, Technical University of Denmark, unless otherwise noted. All rights reserved.  
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
