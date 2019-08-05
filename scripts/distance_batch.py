@@ -276,7 +276,7 @@ else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
 base_path = os.path.dirname(os.path.realpath(args.odir))
-main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
+main_sql_db = os.path.join(base_path, "evergreen.db")
 
 # adjust number of jobs
 no_jobs = min(no_jobs, cpu_count)

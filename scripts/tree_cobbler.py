@@ -276,7 +276,7 @@ except:
     exiting("Couldn't change to {0}".format(bdir))
 
 base_path = os.path.dirname(os.path.realpath(bdir))
-main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
+main_sql_db = os.path.join(base_path, "evergreen.db")
 
 suffix = ""
 if args.debug:
