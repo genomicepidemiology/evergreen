@@ -115,7 +115,7 @@ The default output is a list of templates and corresponding newick trees that we
 
 
 ###### Test data
-Download test isolates from [Ahrenfeldt 2017](https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-3407-6) and [Timme 2017] (https://peerj.com/articles/3893/), and create iso file:
+Download test isolates from [Ahrenfeldt 2017](https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-3407-6) and [Timme 2017](https://peerj.com/articles/3893/), and create iso file:
 ```
 cd /path/to/install_dir/evergreen/test
 wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/evergreen_test_isolates.tar.gz
