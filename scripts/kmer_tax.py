@@ -9,17 +9,15 @@ import shutil
 import shlex
 import subprocess
 import sqlite3
-from joblib import Parallel, delayed
-from multiprocessing import cpu_count
+import multiprocessing
 
 """
 Obs: Offline version, the db is populated here with runs!!
 """
 
-
 NAP = 30
 WAIT = 600
-J_LIMIT = cpu_count()
+J_LIMIT = multiprocessing.cpu_count()
 KMA_SHM = "kma_shm"
 KMA = "kma"
 
@@ -344,9 +342,11 @@ if kmf_cmds:
         if task:
             exiting("KMA db couldn't be loaded into memory.")
 
-    jobs = Parallel(n_jobs=J_LIMIT)(delayed(jobstart_safe_n_silent)(cmd) for cmd in kmf_cmds)
-    if sum(jobs) != 0:
-        print("Warning: A subprocess was unsuccessful.", file=sys.stderr)
+    if __name__ == '__main__':
+        p = multiprocessing.Pool(J_LIMIT)
+        p.imap_unordered(jobstart_safe_n_silent, kmf_cmds)
+        p.close()
+        p.join()
 
     if shared:
         #delete shared mem db
@@ -367,29 +367,28 @@ runs_update = []
 ut = []
 ref_found = 0
 if spa_files:
-    references = Parallel(n_jobs=J_LIMIT)(delayed(get_template)(fn) for fn in spa_files)
-
-    # Untangle templates
     templ_insert = []
-    for isolate in references:
-        if isolate is not None: # template(s) were found
-            ref_found += 1
+    if __name__ == '__main__':
+        p = multiprocessing.Pool(J_LIMIT)
+        for isolate in p.imap_unordered(get_template, spa_files):
+            if isolate is not None: # template(s) were found
+                ref_found += 1
 
-            if type(isolate[0]) is str: # just one
-                ut.append(isolate)
-                # sra_id, templ, species, tot_cov, depth
-                templ_insert.append(tuple([isolate[0]]+isolate[2:6]))
-                # sra_id, "1" if included
-                runs_update.append((1, isolate[0]))
-                acc_found.add(isolate[0])
-            else:
-                ut.extend(isolate)
-                for tmpl in isolate:
-                    templ_insert.append(tuple([tmpl[0]]+tmpl[2:6]))
-                runs_update.append((1, isolate[0][0]))
-                acc_found.add(isolate[0][0])
-
-
+                if type(isolate[0]) is str: # just one
+                    ut.append(isolate)
+                    # sra_id, templ, species, tot_cov, depth
+                    templ_insert.append(tuple([isolate[0]]+isolate[2:6]))
+                    # sra_id, "1" if included
+                    runs_update.append((1, isolate[0]))
+                    acc_found.add(isolate[0])
+                else:
+                    ut.extend(isolate)
+                    for tmpl in isolate:
+                        templ_insert.append(tuple([tmpl[0]]+tmpl[2:6]))
+                    runs_update.append((1, isolate[0][0]))
+                    acc_found.add(isolate[0][0])
+    p.close()
+    p.join()
 
     timing("# KMA done, {0} runs have templates.".format(ref_found))
 
