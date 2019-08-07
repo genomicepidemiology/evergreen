@@ -132,16 +132,16 @@ def decorate_tree(treepath, mode):
                 for rec in records:
                     isoNode = homNode.add_child(name="*{}".format(rec[0]), dist=0)
 
-    outpath = os.path.join(bdir, "_tree", "{0}_{1}_{2}.newick{3}".format(mode, method, ctime, suffix))
+    outpath = os.path.join(bdir, "_tree", "{0}_{1}_{2}_{3}.newick{4}".format(template_name, mode, method, ctime, suffix))
     full_tree.write(format=0, outfile=outpath)
     if args.debug:
         print(full_tree)
     return
 
-def decode_nw_file(nw_file):
+def decode_nw_file(nw_file, mode):
     # load the pickle with id: seqname pairs
     seqid2name = {}
-    with open(os.path.join(args.bdir, "seqid2name.pic"), "r") as pf:
+    with open(os.path.join(args.bdir, "seqid2name.{}.pic".format(mode)), "r") as pf:
         seqid2name = pickle.load(pf)
 
     newick = []
@@ -312,7 +312,7 @@ if args.distance:
     with open("output", "w") as ofile:
         print(stdoutdata, file=ofile)
 
-    decode_nw_file(os.path.join(wdir, "outtree"))
+    decode_nw_file(os.path.join(wdir, "outtree"), mode)
 
     timing("# Distance based tree constructed.")
 
@@ -352,7 +352,7 @@ elif args.likelihood:
     with open("output", "w") as ofile:
         print(stdoutdata, file=ofile)
 
-    decode_nw_file(os.path.join(wdir, "outtree"))
+    decode_nw_file(os.path.join(wdir, "outtree"), mode)
 
     # make the maxL tree
     try:
@@ -389,8 +389,8 @@ else:
     # neither option was chosen
     exiting("Tree method was not chosen.")
 
-
-fulltree_file = os.path.join(bdir, "_tree", "{0}_{1}_{2}.newick{3}".format(mode, method, ctime, suffix))
+template_name = os.path.basename(bdir)
+fulltree_file = os.path.join(bdir, "_tree", "{0}_{1}_{2}_{3}.newick{4}".format(template_name, mode, method, ctime, suffix))
 cur.execute('''SELECT count(*) from sequences where repr_id is not Null;''')
 numb = cur.fetchone()
 if numb and numb[0]:
@@ -432,7 +432,6 @@ if not args.debug:
         );''')
     conn.commit()
 
-    template_name = os.path.basename(bdir)
     cur.execute('''INSERT OR REPLACE INTO trees (template,method,mode,nw_path) VALUES (?,?,?,?)''', (template_name, method, mode, fulltree_file))
     conn.commit()
     conn.close()

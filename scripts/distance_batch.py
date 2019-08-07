@@ -16,6 +16,7 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+import config
 
 no_jobs = 20
 MEM_AVAIL = 80 # Gb
@@ -157,8 +158,8 @@ def parallel_opt(no_jobs, tot_len):
         no_jobs	= max(1, no_jobs)
     return no_jobs
 
-def read_encode_univ(filename, tot_len):
-    fp = os.path.join(args.odir, filename)
+def read_encode_univ(filename, tot_len, odir):
+    fp = os.path.join(odir, filename)
     if os.path.exists(fp):
         entries = zip(*[[seq, name, desc] for seq, name, desc in SeqsFromFile(fp)])
         strain = "".join(entries[0])
@@ -263,6 +264,7 @@ if args.odir is None:
     exiting('Output directory is needed')
 
 # File for distance matrix output
+templ = os.path.basename(args.odir)
 if args.outputfilenamemat is None:
     if args.allcalled:
         outputmat = os.path.join(args.odir, "dist.all.mat{0}".format(suffix))
@@ -289,14 +291,13 @@ conn.commit()
 cur = conn.cursor()
 
 # for template
+mode = 'pw'
 if args.allcalled:
-    db_path = os.path.join(args.odir, "isolates.all.db{}".format(suffix))
-    non_red_pic = os.path.join(args.odir, "non-red.all.pic{}".format(suffix))
-    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.all{}.npy".format(suffix))
-else:
-    db_path = os.path.join(args.odir, "isolates.pw.db{}".format(suffix))
-    non_red_pic = os.path.join(args.odir, "non-red.pw.pic{}".format(suffix))
-    hr_matrix_npy = os.path.join(args.odir, "hr-matrix.pw{}.npy".format(suffix))
+    mode = 'all'
+
+db_path = os.path.join(args.odir, "isolates.{0}.db{1}".format(mode, suffix))
+non_red_pic = os.path.join(args.odir, "non-red.{0}.pic{1}".format(mode, suffix))
+hr_matrix_npy = os.path.join(args.odir, "hr-matrix.{0}{1}.npy".format(mode, suffix))
 
 
 iso_conn = sqlite3.connect(db_path)
@@ -306,7 +307,6 @@ iso_cur = iso_conn.cursor()
 
 # New strains
 newseqs = []
-templ = os.path.basename(args.odir)
 
 if args.new == "-":
     # TODO DONE isolates list from db
@@ -424,7 +424,7 @@ tot_len = None
 # load and encode new isolates
 # might not need to be parallel (overhead)
 if slens[1] > 30:
-    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, None) for isolatefile in newseqs)
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, None, args.odir) for isolatefile in newseqs)
     # dump as a memmap and concat
     tot_len = np.shape(arrays[0])[0]
     for i, arr in enumerate(arrays):
@@ -437,12 +437,12 @@ if slens[1] > 30:
 else:
     for i, isolatefile in enumerate(newseqs):
         if i == 0:
-            tmp_np = read_encode_univ(isolatefile, tot_len)
+            tmp_np = read_encode_univ(isolatefile, tot_len, args.odir)
             tot_len = np.shape(tmp_np)[0]
             inputnewseqmat = np.zeros((slens[1], tot_len), dtype=np.int8)
             inputnewseqmat[0,:] = tmp_np[:]
         else:
-            inputnewseqmat[i,:] = read_encode_univ(isolatefile, tot_len)[:]
+            inputnewseqmat[i,:] = read_encode_univ(isolatefile, tot_len, args.odir)[:]
 
 # save as npy
 np.save(os.path.join(args.odir, "new-matrix.npy"), inputnewseqmat, allow_pickle=True, fix_imports=True)
@@ -453,7 +453,7 @@ if not re_calc and os.path.exists(hr_matrix_npy):
     inputhrseqmat = np.load(hr_matrix_npy, mmap_mode=None, allow_pickle=True, fix_imports=True)
 else:
     # read in and encode the seqs in parallel
-    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, tot_len) for isolatefile in oldseqs)
+    arrays = Parallel(n_jobs=no_jobs)(delayed(read_encode_univ)(isolatefile, tot_len, args.odir) for isolatefile in oldseqs)
     # construct in memory
     iso_not_found = []
     for i, arr in enumerate(arrays):
@@ -520,7 +520,7 @@ if not args.quiet:
 
 # TODO DONE
 # dump hr array to /dev/shm
-temp_folder = tempfile.mkdtemp(prefix='ever_joblib_', dir='/dev/shm')
+temp_folder = tempfile.mkdtemp(prefix='ever_joblib_', dir=config.NUMPY_MEMMAP_DIR)
 hr_memmap_fn = os.path.join(temp_folder, 'hr_matrix.npy')
 dump(inputhrseqmat, hr_memmap_fn)
 
@@ -670,7 +670,7 @@ with open(outputmat, "w") as matfile:
             print('{0:.0f}'.format(e), end = "\t", file=matfile)
         print('{0:.0f}'.format(row[-1]), file=matfile)
 
-with open(os.path.join(args.odir, "seqid2name.pic"), "w") as pf:
+with open(os.path.join(args.odir, "seqid2name.{}.pic".format(mode)), "w") as pf:
     pickle.dump(seqid2name, pf)
 
 timing("# Constructed distance matrix.")
