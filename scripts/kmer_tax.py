@@ -190,11 +190,11 @@ if os.environ.get('TMPDIR') is not None:
     tmpdir = os.path.join(os.environ['TMPDIR'], "kma-%s"%(os.getpid()))
     os.mkdir(tmpdir)
 elif os.environ.get('PBS_JOBID') is not None:
-    tmpdir = os.path.join("/tmp", "{0}_{1}".format(os.environ['PBS_JOBID'], "kma-%s"%(os.getpid())))
+    tmpdir = os.path.join(config.TMP_FOLDER, "{0}_{1}".format(os.environ['PBS_JOBID'], "kma-%s"%(os.getpid())))
     os.mkdir(tmpdir)
     shared = True
 else:
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = tempfile.mkdtemp(dir=config.TMP_FOLDER)
 
 # If we want to keep some results, then it's in wdir
 wdir = tmpdir

@@ -33,12 +33,6 @@ export PATH="${PATH}:${PWD}"
 ```
 # Create Anaconda environment
 conda env create --file evergreen/scripts/environment.yml
-
-# Start environment when running the scripts
-conda activate evergreen
-
-# Stop environment when done
-conda deactivate
 ```
 ```
 # Create the subdirectories and databases for analysis
@@ -54,9 +48,15 @@ tar -xzf refseq_complete_chromosomes_151217.tar.gz -C complete_genomes
 # KMA database with default homology reduction settings
 mkdir hr_database
 mkdir hr_database/current
+
+# Start environment when running the scripts
+conda activate evergreen
+
 # run database builder with default settings
 build_database_chr.py -r /path/to/install_dir/evergreen/scripts/refseq_bacteria_2017.lst -o $PWD/hr_database/current
 
+# Stop environment when done
+conda deactivate
 ```
 
 ###### Usage
@@ -67,6 +67,9 @@ Maximum likelihood method works only on less than 300 non-redundant isolates. Ab
 
 _KMA database and complete genomes folder_  
 The classification database should be under hr_database/current, and that and the complete_genomes directory should be in the same analysis directory. (Symlinking the directories from one central place to different analysis folders is possible.)
+
+_Config.py_  
+Edit the file to define where the temporary folders should be
 
 _Input_  
 The input file should only contain new isolates. As long as *results\_db* is available with the files from the previous runs, the new isolates will be processed in addition to the previous isolates.  
@@ -127,8 +130,10 @@ tar -xzf evergreen_test_isolates.tar.gz
 Run the test analysis
 ```
 cd /path/to/analysis_dir
+conda activate evergreen
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
+conda deactivate
 ```
 ###### References
 - Ahrenfeldt, J. et al. Bacterial whole genome-based phylogeny: construction of a new benchmarking dataset and assessment of some existing methods. BMC Genomics 18, 19 (2017).
