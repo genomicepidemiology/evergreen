@@ -10,6 +10,7 @@ import shlex
 import subprocess
 import sqlite3
 import multiprocessing
+import config
 
 """
 Obs: Offline version, the db is populated here with runs!!
