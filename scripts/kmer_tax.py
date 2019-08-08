@@ -338,7 +338,7 @@ for acc in inputs.keys():
 if kmf_cmds:
     if shared:
         # load the db into shared memory
-        shm_cmd = "{0} -t_db {1} -Sparse".format(KMA_SHM, args.database)
+        shm_cmd = "{0} -t_db {1}".format(KMA_SHM, args.database)
         task = jobstart_silent(shm_cmd)
         if task:
             exiting("KMA db couldn't be loaded into memory.")
