@@ -69,7 +69,7 @@ _KMA database and complete genomes folder_
 The classification database should be under hr_database/current, and that and the complete_genomes directory should be in the same analysis directory. (Symlinking the directories from one central place to different analysis folders is possible.)
 
 _Config.py_  
-Edit the file to define where the temporary folders should be
+Edit the file to define where the temporary folders should be.  
 
 _Input_  
 The input file should only contain new isolates. As long as *results\_db* is available with the files from the previous runs, the new isolates will be processed in addition to the previous isolates.  
@@ -114,7 +114,7 @@ Example of use with pairwise distance calculation method, which is suited for la
 ```
 
 _Output_  
-The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
+The output is a list of templates and corresponding newick trees that were inferred in the current run. The scripts also collects the cummulated results (newick trees, phylip distance matrices) in a zipped tar archive, accompanied by a table with all isolates in the database.
 
 
 ###### Test data
@@ -135,6 +135,8 @@ parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $P
 parallel_snp_pipeline.py -f /path/to/install_dir/evergreen/test/test_1.iso -b $PWD -p -D -L
 conda deactivate
 ```
+The expected results of the analysis can be found in the _expected_ folder.
+
 ###### References
 - Ahrenfeldt, J. et al. Bacterial whole genome-based phylogeny: construction of a new benchmarking dataset and assessment of some existing methods. BMC Genomics 18, 19 (2017).
 - Clausen, P. T. L. C., Aarestrup, F. M. & Lund, O. Rapid and precise alignment of raw reads against redundant databases with KMA. BMC Bioinformatics 19, 307 (2018).
@@ -150,5 +152,4 @@ You may obtain a copy of the License at
 	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  
-See the License for the specific language governing permissions and
-limitations under the License.
+See the License for the specific language governing permissions and limitations under the License.
