@@ -144,6 +144,11 @@ else:
     hrfilename = os.path.join(wdir, "non-redundant.pw.lst")
     db_path = os.path.join(wdir, "isolates.pw.db")
 
+# adjust max jobs
+if os.environ.get('PBS_NP') is not None:
+    # we are on a moab HPC cluster
+    J_LIMIT = int(int(os.environ.get('PBS_NP')) / 4)
+
 # db management
 suffix = ""
 if args.debug and os.path.exists(db_path):

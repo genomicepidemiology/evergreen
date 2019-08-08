@@ -18,7 +18,7 @@ except ImportError:
     import pickle
 import config
 
-no_jobs = 20
+no_jobs = cpu_count()
 MEM_AVAIL = 80 # Gb
 THRESHOLD = 10
 
@@ -281,7 +281,9 @@ base_path = os.path.dirname(os.path.realpath(args.odir))
 main_sql_db = os.path.join(base_path, "evergreen.db")
 
 # adjust number of jobs
-no_jobs = min(no_jobs, cpu_count)
+if os.environ.get('PBS_NP') is not None:
+    # we are on a moab HPC cluster
+    no_jobs = int(int(os.environ.get('PBS_NP'))/4)
 
 # open database
 # MAIN

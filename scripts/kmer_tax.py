@@ -209,6 +209,11 @@ results_dir = os.path.join(base_path, "results_db")
 ref_gen_dir = os.path.join(base_path, "complete_genomes") #the ref genomes without the plasmids !!!
 main_sql_db = os.path.join(base_path, "results_db/evergreen.db")
 
+## Get the number of cpus available
+if os.environ.get('PBS_NP') is not None:
+    # we are on a moab HPC cluster
+    J_LIMIT = int(os.environ.get('PBS_NP'))
+
 # open sql db to templates
 #print(main_sql_db)
 
