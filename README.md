@@ -4,6 +4,9 @@ The Evergreen SNP phylogenic pipeline is for the purpose of continuous phylogene
 Isolates are matched and mapped to complete reference genomes (templates). The resulting consensus sequences are the basis of the SNP based phylogenetic trees, that are inferred for each template. These trees could be completely new, if no isolates were matched previously to that subtype, or could contain isolates that were previously added. Therefore ongoing surveillance is performed just by adding new isolates to the system. There is a clustering step during the distance calculation, where isolates with less than 10 SNPs distance are clustered to a 'cluster representative' isolate. These clustered isolates are denoted with an asterisk (\*) in the phylogenetic trees.  
 [Preprint on BioRxiv](http://biorxiv.org/cgi/content/short/540138v1)
 
+###### System requirement
+Unix based system (Linux, OSX), min. 4 cores, recommended: 8+ cores
+
 ###### Dependencies
 
 Anaconda Python 2.7  
@@ -14,7 +17,8 @@ ETE3 package 3.0+
 [Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
 
 
-###### Installation
+###### Installation and database creation
+Approx. 30 mins  
 ```
 # Go to install location
 cd /path/to/install_dir
@@ -127,7 +131,7 @@ tar -xzf evergreen_test_isolates.tar.gz
 ./proto_iso.sh
 ```
 
-Run the test analysis
+Run the test analysis (approx. 60 mins on 4 cores):
 ```
 cd /path/to/analysis_dir
 conda activate evergreen
