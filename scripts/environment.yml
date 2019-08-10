@@ -1,0 +1,9 @@
+name: evergreen
+channels:
+  - conda-forge
+dependencies:
+  - python=2.7
+  - scipy
+  - numpy
+  - ete3
+  - joblib
