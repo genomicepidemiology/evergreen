@@ -20,7 +20,6 @@ import config
 
 no_jobs = cpu_count()
 MEM_AVAIL = 80 # Gb
-THRESHOLD = 10
 
 """
 Change:
@@ -558,7 +557,7 @@ timing("# Calculated pairwise distance from query to all previous mapped seqs")
 # collect the old - new clusters
 clustered_to_old = {}
 dist_old = {}
-min_dist = THRESHOLD
+min_dist = config.THRESHOLD
 nw, hr = np.where(dist_nw_o < min_dist)
 pre = -1
 for i, hr_index in enumerate(hr):
@@ -580,7 +579,7 @@ non_clustered = [x for x in xrange(slens[1]) if x not in clustered_to_old]
 if len(non_clustered) > 1:
     reduced = [non_clustered[0]]
     for i in non_clustered[1:]:
-        mpdist = THRESHOLD
+        mpdist = config.THRESHOLD
         close = None
         for j in reduced:
         # calc the distances
