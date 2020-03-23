@@ -2,6 +2,7 @@
 from __future__ import print_function
 import sys, os, time
 import argparse
+import tempfile
 import shutil
 import shlex
 import subprocess
@@ -10,12 +11,9 @@ import sqlite3
 from operator import itemgetter
 from ete3 import Tree
 
-base_path = os.path.dirname(sys.argv[0]).rsplit("/",1)[0]
-IQTREE = os.path.join(base_path, "scripts/iqtree")
-DTREE = os.path.join(base_path, "scripts/neighbor")
-MAIN_SQL_DB = os.path.join(base_path, "results_db/evergreen.db")
 
-
+IQTREE = "iqtree"
+DTREE = "neighbor"
 
 parser = argparse.ArgumentParser(
     description='Wrapper for the tree infering program for the Evergreen pipeline')
@@ -277,6 +275,9 @@ try:
 except:
     exiting("Couldn't change to {0}".format(bdir))
 
+base_path = os.path.dirname(os.path.realpath(bdir))
+main_sql_db = os.path.join(base_path, "evergreen.db")
+
 suffix = ""
 if args.debug:
     suffix = ".t"
@@ -289,7 +290,6 @@ treefilename = None
 
 # open database
 db_path = os.path.join(bdir, "isolates.{0}.db{1}".format(mode, suffix))
-#print(db_path)
 conn = sqlite3.connect(db_path)
 conn.execute("PRAGMA foreign_keys = 1")
 cur = conn.cursor()
@@ -301,7 +301,8 @@ if args.distance:
     matpath = os.path.relpath(matpath)
     treefilename = "outtree"
 
-    inputstr = "{0}\nY\n".format(matpath)
+    # lower triangle
+    inputstr = "{0}\nL\nY\n".format(matpath)
     proc = subprocess.Popen(DTREE, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     proc.stdin.write(inputstr)
     # wait for it. it gets stuck in simple wait() if fails
@@ -341,7 +342,7 @@ elif args.likelihood:
     treefilename = "sequences.fa.treefile"
 
     # get the NJ tree made
-    inputstr = "{0}\nY\n".format(matpath)
+    inputstr = "{0}\nL\nY\n".format(matpath)
     proc = subprocess.Popen(DTREE, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     proc.stdin.write(inputstr)
     # wait for it. it gets stuck in simple wait() if fails
@@ -377,7 +378,7 @@ elif args.likelihood:
     # -s Escherichia_coli_K_12_substr__MG1655_uid57779_99.fa -st DNA -m GTR
     # -nt AUTO -mem 14Gb -bb 1000
     # dont bootstrap if -fast (not compatible)
-    cmd = "{0} -s sequences.fa -st DNA -m GTR -nt AUTO -mem 64Gb -nstop 50 -t outtree".format(IQTREE)
+    cmd = "{0} -s sequences.fa -st DNA -m GTR+I+G -nt AUTO -mem 64Gb -nstop 50 -t outtree".format(IQTREE)
     with open("sequences.fa.out", "w") as ofile:
         exitcode = subprocess.call(shlex.split(cmd), stdout=ofile)
     if exitcode:
@@ -415,8 +416,7 @@ timing("# Tree decorated.")
 
 # make a tree with metadata
 if not args.debug:
-    conn = sqlite3.connect(MAIN_SQL_DB)
-    conn.execute("PRAGMA foreign_keys = 1")
+    conn = sqlite3.connect(main_sql_db)
     conn.commit()
     cur = conn.cursor()
 
