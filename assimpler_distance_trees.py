@@ -6,17 +6,13 @@ import argparse
 import shutil
 import subprocess
 import shlex
-from joblib import Parallel, delayed
-from multiprocessing import cpu_count, Pool
+import multiprocessing
 import sqlite3
 
-J_LIMIT = int(cpu_count() / 4)
+J_LIMIT = int(multiprocessing.cpu_count() / 4)
 
 """
 Takes: one file with the collected info about the isolates (from kmer_tax)
-
-Change:
-- for COMPARE: delete ml tree from db if > 650 seqs and thus no new ml tree is done
 """
 
 parser = argparse.ArgumentParser(
@@ -24,7 +20,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
    '-b',
    dest="base",
-   default="/data/evergreen",
    help='Base output directory, absolute path')
 parser.add_argument(
     '-i',
@@ -78,7 +73,7 @@ def jobstart_silent(command):
         exiting("Devnull won't open.")
     job = subprocess.call(cmd, stdout=devnull, stderr=devnull)
     devnull.close()
-    return
+    return job
 
 def exiting(message):
     print(message, file=logfile)
@@ -145,6 +140,11 @@ else:
     hrfilename = os.path.join(wdir, "non-redundant.pw.lst")
     db_path = os.path.join(wdir, "isolates.pw.db")
 
+# adjust max jobs
+if os.environ.get('PBS_NP') is not None:
+    # we are on a moab HPC cluster
+    J_LIMIT = int(int(os.environ.get('PBS_NP')) / 4)
+
 # db management
 suffix = ""
 if args.debug and os.path.exists(db_path):
@@ -206,14 +206,14 @@ if args.debug:
         print("# 1st mapping command:", mapper_cmds[0])
     print("# number of mapping commands:", len(mapper_cmds))
 
-J_LIMIT = min(J_LIMIT, len(mapper_cmds))
-
 # Start assimpler mapper
-if mapper_cmds and __name__ == '__main__':
+if mapper_cmds:
+    if __name__ == '__main__':
 
-    p = Pool(J_LIMIT)
-    p.map(jobstart_silent, mapper_cmds)
-
+        p = multiprocessing.Pool(J_LIMIT)
+        p.imap_unordered(jobstart_silent, mapper_cmds)
+        p.close()
+        p.join()
 timing("# Mapping done.")
 
 # write cons files list to cf.txt
