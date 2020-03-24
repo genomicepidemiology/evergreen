@@ -227,6 +227,7 @@ def dist_calc_lower(s1, s2, i, S, no_compared_strains, total_batched):
         for k in xrange(no_compared_strains):
             dist_t[k,j] = np.not_equal(s1[l,], s2[k,]).sum(0) - np.not_equal(s1[l,]!= 0, s2[k,]!= 0).sum(0)
     return dist_t
+
 def seq_to_homol(cluster):
     """Convert cluster dict to dict of lists."""
     redict = {} # homol : [seqs]
@@ -570,7 +571,7 @@ m = None
 if args.allcalled:
     if pristine:
         m = np.logical_and((inputhrseqmat != 0).all(axis=0), (inputnewseqmat != 0).all(axis=0))
-        if (m.sum() / tot_len > config.DYHOLD):
+        if (( 1 - (m.sum() / tot_len)) > config.DYHOLD):
             pristine = False
             known_frac = np.round_((((inputhrseqmat != 0).sum(0)) + ((inputnewseqmat != 0).sum(0))) / float(slens[0]+slens[1]), 5)
             m = (known_frac >= config.CLEAN)
@@ -735,16 +736,10 @@ elif upd_new_len > 1:
 
     else:
         dist_nw_nw = np.zeros(shape=(upd_new_len,upd_new_len), dtype=np.uint16)
-        redundant = []
         for i in range(upd_new_len):
             # lower triangle
             for j in range(0,i):
-                if j not in redundant:
                     dist_nw_nw[i,j] = np.not_equal(inputnewseqmat[i,],inputnewseqmat[j,]).sum(0) - np.not_equal(inputnewseqmat[i,]!= 0, inputnewseqmat[j,]!= 0).sum(0)
-
-                    if dist_nw_nw[i,j] < config.THRESHOLD:
-                        redundant.append(i)
-                        break
 
         # del sequence matrix when done
         del inputnewseqmat
