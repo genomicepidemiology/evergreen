@@ -516,6 +516,11 @@ if templ_update:
     inputnewseqmat = np.delete(inputnewseqmat, bad_iso, axis=0)
     for i in sorted(bad_iso, reverse=True):
         del newseqs[i]
+
+# Exit if no new
+if not newseqs:
+    exiting("No new sequences.")
+
 # save as npy
 np.save(os.path.join(args.odir, "new-matrix.npy"), inputnewseqmat, allow_pickle=True, fix_imports=True)
 
