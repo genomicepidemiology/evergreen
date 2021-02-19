@@ -1,6 +1,6 @@
-### Evergreen SNP phylogenetic pipeline for COMPARE hubs
+### Pipeline for automated phylogenomic analysis of bacterial isolates (PAPABAC or Evergreen) - COMPARE Data hubs
 
-The Evergreen SNP phylogenic pipeline is for the purpose of continuous phylogenetical analysis of bacterial whole-genome sequencing data.  
+This pipeline is for the purpose of continuous phylogenetical analysis of bacterial whole-genome sequencing data.  
 Isolates are matched and mapped to complete reference genomes (templates). The resulting consensus sequences are the basis of the SNP based phylogenetic trees, that are inferred for each template. These trees could be completely new, if no isolates were matched previously to that subtype, or could contain isolates that were previously added. Therefore ongoing surveillance is performed just by adding new isolates to the system. There is a clustering step during the distance calculation, where isolates with less than 10 SNPs distance are clustered to a 'cluster representative' isolate. These clustered isolates are denoted with an asterisk (\*) in the phylogenetic trees.  
 
 ###### Dependencies
@@ -17,6 +17,10 @@ cd /path/to/install_dir
 # Clone COMPARE branch
 git clone https://bitbucket.org/genomicepidemiology/evergreen.git -b COMPARE
 mv evergreen scripts
+```
+
+###### Folder structure and databases
+```
 # Create the subdirectories and databases
 mkdir logs
 mkdir output
