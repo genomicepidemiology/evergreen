@@ -143,7 +143,9 @@ def open_(filename, mode=None, compresslevel=9):
 def timing(message):
     if not args.quiet:
         t1 = time.time()
-        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=sys.stdout)
+        logfile = open(logfilename, "a")
+        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=logfile)
+        logfile.close()
     return
 
 def exiting(message):
@@ -268,6 +270,7 @@ def add_clusters(ref, isolates):
 
 # Start time to keep track of progress
 t0 = time.time()
+todaysdate = time.strftime("%d%m%Y")
 
 # Parse command line options
 parser = argparse.ArgumentParser(
@@ -327,6 +330,8 @@ else:
     else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
+# set up logfile
+logfilename = sorted(glob.glob(os.path.join(base_path, "logs/{}_{}_*.log".format(todaysdate, templ))))[-1]
 
 # open database
 # MAIN
@@ -604,10 +609,12 @@ tot_len = np.shape(inputnewseqmat)[1]
 timing("# Removed non-informative positions from matrices.")
 
 if not args.quiet:
-    print("# Known fraction mean, SD: {} {}".format(mean_a, std_dev), file=sys.stdout)
-    print("# Minimum known bases per position: {}".format(config.CLEAN), file=sys.stdout)
-    print("# Total length: {}".format(tot_len), file=sys.stdout)
-    print("# Number of strains: {}".format(slens), file=sys.stdout)
+    logfile = open(logfilename, "a")
+    print("# Known fraction mean, SD: {} {}".format(mean_a, std_dev), file=logfile)
+    print("# Minimum known bases per position: {}".format(config.CLEAN), file=logfile)
+    print("# Total length: {}".format(tot_len), file=logfile)
+    print("# Number of strains: {}".format(slens), file=logfile)
+    logfile.close()
 
 # print(np.info(inputhrseqmat))
 # print(np.info(inputnewseqmat))
@@ -1003,5 +1010,5 @@ except OSError:
 
 
 timing("# Distance calculation is finished.")
-print("DONE", file=sys.stderr)
+#print("DONE", file=sys.stderr)
 sys.exit(0)
