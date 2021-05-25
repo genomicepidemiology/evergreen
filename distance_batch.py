@@ -331,7 +331,7 @@ else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
 # set up logfile
-logfilename = sorted(glob.glob(os.path.join(base_path, "logs/{}_{}_*.log".format(todaysdate, templ))))[-1]
+logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, templ))))[-1]
 
 # open database
 # MAIN

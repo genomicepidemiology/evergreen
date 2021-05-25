@@ -290,7 +290,7 @@ if args.allcalled:
 
 # set up logfile
 template_name = os.path.basename(bdir)
-logfilename = sorted(glob.glob(os.path.join(base_path, "logs/{}_{}_*.log".format(todaysdate, template_name))))[-1]
+logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, template_name))))[-1]
 
 treefilename = None
 
