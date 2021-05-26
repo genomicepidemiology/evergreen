@@ -8,6 +8,7 @@ import subprocess
 import shlex
 import multiprocessing
 import sqlite3
+import logging
 
 J_LIMIT = int(multiprocessing.cpu_count() / 4)
 
@@ -61,7 +62,7 @@ args = parser.parse_args()
 def jobstart(command):
     #job = print(command)
     cmd = shlex.split(command)
-    job = subprocess.call(cmd, stdout=logfile, stderr=logfile)
+    job = subprocess.call(cmd)
     return job
 
 def jobstart_silent(command):
@@ -76,17 +77,16 @@ def jobstart_silent(command):
     return job
 
 def exiting(message):
-    print(message, file=logfile)
-    print("FAIL", file=logfile)
+    print(message, file=sys.stderr)
+    print("FAIL", file=sys.stderr)
     sys.exit(1)
 
 def timing(message):
     if not args.quiet:
         t1 = time.time()
+        logfile = open(logfilename, "a")
         print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=logfile)
-        # flush it
-        logfile.flush()
-        os.fsync(logfile.fileno())
+        logfile.close()
     return
 
 def parse_input():
@@ -108,6 +108,7 @@ def parse_input():
 
 ## Main
 t0 = time.time()
+todaysdate = time.strftime("%d%m%Y")
 
 # Check base dir and db
 bdir = os.path.realpath(args.base)
@@ -121,10 +122,7 @@ MAIN_SQL_DB = os.path.join(bdir, "results_db/evergreen.db")
 
 # Process collection file
 inputs = []
-logfile = None
 if args.collection_file is not None:
-    logfilename = os.path.join(bdir, "logs/{}.log".format(os.path.split(args.collection_file)[-1].split(".")[0]))
-    logfile = open(logfilename, "w")
     inputs = parse_input()
 else:
     exiting("Please specify input file.")
@@ -139,6 +137,9 @@ if args.allcalled:
 else:
     hrfilename = os.path.join(wdir, "non-redundant.pw.lst")
     db_path = os.path.join(wdir, "isolates.pw.db")
+
+# set up logfile
+logfilename = os.path.join(bdir, "logs/{}_{}_{}.log".format(todaysdate, template, int(t0)))
 
 # adjust max jobs
 if os.environ.get('PBS_NP') is not None:
@@ -319,13 +320,13 @@ if non_redundant_no > 2:
         cmd = "{0} -b {1} -m {2} {3} -d".format(PTREE, wdir, matfilename, add_opt)
         if args.debug:
             print("# Tree command: ", cmd)
-        procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
+        procs.append(subprocess.Popen(shlex.split(cmd)))
 
     if args.likelihood and non_redundant_no > 3 and non_redundant_no <= 300:
         cmd = "{0} -b {1} -f {2} {3} -l -m {4}".format(PTREE, wdir, "-", add_opt, matfilename)
         if args.debug:
             print("# Tree command: ", cmd)
-        procs.append(subprocess.Popen(shlex.split(cmd), stdout=logfile, stderr=logfile))
+        procs.append(subprocess.Popen(shlex.split(cmd)))
     elif args.likelihood and non_redundant_no > 300:
         # too many isolates for ml, thus the ml tree in the db is deleted
         conn = sqlite3.connect(MAIN_SQL_DB)
@@ -347,6 +348,7 @@ if non_redundant_no > 2:
 else:
     timing("# Tree inference not possible.")
 
+logfile = open(logfilename, "a")
 print("DONE", file=logfile)
 logfile.close()
 sys.exit(0)

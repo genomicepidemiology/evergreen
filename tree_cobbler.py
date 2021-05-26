@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys, os, time
 import argparse
 import tempfile
+import glob
 import shutil
 import shlex
 import subprocess
@@ -84,7 +85,9 @@ def open_(filename, mode=None, compresslevel=9):
 def timing(message):
     if not args.quiet:
         t1 = time.time()
-        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=sys.stdout)
+        logfile = open(logfilename, "a")
+        print("{0} Time used: {1} seconds".format(message, int(t1-t0)), file=logfile)
+        logfile.close()
     return
 
 def exiting(message):
@@ -261,7 +264,7 @@ def SeqsFromFile(filename, exit_on_err=False):
 # Start time to keep track of progress
 t0 = time.time()
 ctime = int(t0)
-etta = 0.001
+todaysdate = time.strftime("%d%m%Y")
 
 
 # Valid base dir
@@ -285,6 +288,10 @@ if args.debug:
 mode = 'pw'
 if args.allcalled:
     mode = 'all'
+
+# set up logfile
+template_name = os.path.basename(bdir)
+logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, template_name))))[-1]
 
 treefilename = None
 
@@ -390,7 +397,6 @@ else:
     # neither option was chosen
     exiting("Tree method was not chosen.")
 
-template_name = os.path.basename(bdir)
 fulltree_file = os.path.join(bdir, "_tree", "{0}_{1}_{2}_{3}.newick{4}".format(template_name, mode, method, ctime, suffix))
 cur.execute('''SELECT count(*) from sequences where repr_id is not Null;''')
 numb = cur.fetchone()
@@ -443,5 +449,6 @@ if not args.keep:
     except:
         pass
 
-print("Done.", file=sys.stderr)
+timing("# Phylogenetic tree saved.")
+#print("Done.", file=sys.stderr)
 sys.exit(0)
