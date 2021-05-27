@@ -385,7 +385,7 @@ elif args.likelihood:
     # -s Escherichia_coli_K_12_substr__MG1655_uid57779_99.fa -st DNA -m GTR
     # -nt AUTO -mem 14Gb -bb 1000
     # dont bootstrap if -fast (not compatible)
-    cmd = "{0} -s sequences.fa -st DNA -m GTR+I+G -nt AUTO -mem 64Gb -nstop 50 -t outtree".format(IQTREE)
+    cmd = "{0} -s sequences.fa -st DNA -m GTR+I+G -nt AUTO -ntmax 4 -mem 64Gb -nstop 50 -t outtree -safe".format(IQTREE)
     with open("sequences.fa.out", "w") as ofile:
         exitcode = subprocess.call(shlex.split(cmd), stdout=ofile)
     if exitcode:
