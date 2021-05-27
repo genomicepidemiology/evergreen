@@ -524,6 +524,7 @@ if templ_update:
 
 # Exit if no new
 if not newseqs:
+    timing("# Distance calculation has no new sequences")
     exiting("No new sequences.")
 
 # save as npy
