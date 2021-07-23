@@ -5,9 +5,12 @@ Isolates are matched and mapped to complete reference genomes (templates). The r
 
 ###### Dependencies
 ```
-Anaconda Python 2.7
-Joblib package
-ETE3 package
+Anaconda Python 2.7  
+Joblib package 0.13+  
+ETE3 package 3.0+  
+[KMA 1.1.7](https://bitbucket.org/genomicepidemiology/kma)  
+[IQ-tree 1.6](http://www.iqtree.org)  
+[Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
 ```
 
 ###### Installation
@@ -18,6 +21,17 @@ cd /path/to/install_dir
 git clone https://bitbucket.org/genomicepidemiology/evergreen.git -b COMPARE
 mv evergreen scripts
 ```
+```
+# Install specific kma version
+git clone https://bitbucket.org/genomicepidemiology/kma.git -b 1.1.7 --single-branch
+cd kma && make
+# Add kma folder to PATH
+export PATH="${PATH}:${PWD}"
+```
+```
+# Create Anaconda environment
+conda env create --file evergreen/scripts/environment.yml
+```
 
 ###### Folder structure and databases
 ```
@@ -25,15 +39,19 @@ mv evergreen scripts
 mkdir logs
 mkdir output
 mkdir results_db
-mkdir complete_genomes
-# ~7Gb
-wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/refseq_complete_chromosomes_151217.tar.gz
-tar -xzf refseq_complete_chromosomes_151217.tar.gz -C complete_genomes
+# ~16Gb
+wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/refseq_bacterial_complete_chromosomes_2021.tar.gz
+tar -xzf refseq_bacterial_complete_chromosomes_2021.tar.gz
+
+# KMA database with default homology reduction settings
 mkdir hr_database
 mkdir hr_database/current
-# ~1Gb
-wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/bacteria_kma_hq99_201711.tar.gz
-tar -xzvf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
+
+# Start environment when running the scripts
+conda activate evergreen
+
+# run database builder with default settings
+$PWD/scripts/build_database_chr.py -r $PWD/scripts/refseq_bacterial_complete_chromosomes_2021.lst -o $PWD/hr_database/current
 ```
 
 A config file is included for the customisation of temporary directories.
