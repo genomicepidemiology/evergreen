@@ -240,6 +240,9 @@ elif args.append:
 else:
     logging("KMA database existing")
 
+# also remove .seq.b
+tmp_files.append("{}.seq.b".format(kma_output))
+
 # clean up
 for tmpfile in tmp_files:
     try:
