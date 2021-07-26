@@ -1,10 +1,9 @@
 mkdir logs
 mkdir output
 mkdir results_db
-mkdir complete_genomes
-wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/refseq_complete_chromosomes_151217.tar.gz
-tar -xzf refseq_complete_chromosomes_151217.tar.gz -C complete_genomes
+wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/refseq_bacterial_complete_chromosomes_2021.tar.gz
+tar -xzf refseq_bacterial_complete_chromosomes_2021.tar.gz
+conda activate evergreen
 mkdir hr_database
 mkdir hr_database/current
-wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/bacteria_kma_hq99_201711.tar.gz
-tar -xzf bacteria_kma_hq99_201711.tar.gz -C hr_database/current
+$PWD/scripts/build_database_chr.py -r $PWD/scripts/refseq_bacterial_complete_chromosomes_2021.lst -o $PWD/hr_database/current

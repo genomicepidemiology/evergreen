@@ -183,7 +183,9 @@ if not args.allcalled and not args.pairwise:
     exiting("Either -a or -p option is needed!")
 
 # db paths
-db_paths = "-db {0} -f_db {1} -fa_db {2}".format(os.path.join(bdir, "hr_database/current/bacterial_compl_genomes_hq99_k13_ATG"),
+pattern = os.path.join(bdir, "hr_database/current/*.name*")
+kma_db = glob.glob(pattern)[0].split(".name")[0]
+db_paths = "-db {0} -f_db {1} -fa_db {2}".format(kma_db,
   os.path.join(bdir, "hr_database/current/bacteria.folder.pic"),
   os.path.join(bdir, "hr_database/current/bacteria.fsa_name.pic")
 )
