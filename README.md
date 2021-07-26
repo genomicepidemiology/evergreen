@@ -44,10 +44,9 @@ cd /path/to/analysis_dir
 mkdir logs
 mkdir output
 mkdir results_db
-mkdir complete_genomes
-# ~7Gb of complete chromosomes from NCBI RefSeq
-wget ftp://ftp.cbs.dtu.dk/public//CGE/databases/Evergreen/refseq_complete_chromosomes_151217.tar.gz
-tar -xzf refseq_complete_chromosomes_151217.tar.gz -C complete_genomes
+# ~16Gb
+wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/refseq_bacterial_complete_chromosomes_2021.tar.gz
+tar -xzf refseq_bacterial_complete_chromosomes_2021.tar.gz
 
 # KMA database with default homology reduction settings
 mkdir hr_database
@@ -57,10 +56,7 @@ mkdir hr_database/current
 conda activate evergreen
 
 # run database builder with default settings
-build_database_chr.py -r /path/to/install_dir/evergreen/scripts/refseq_bacteria_2017.lst -o $PWD/hr_database/current
-
-# Stop environment when done
-conda deactivate
+build_database_chr.py -r $PWD/scripts/refseq_bacterial_complete_chromosomes_2021.lst -o $PWD/hr_database/current
 ```
 
 ###### Usage
