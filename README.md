@@ -4,14 +4,14 @@ This pipeline is for the purpose of continuous phylogenetical analysis of bacter
 Isolates are matched and mapped to complete reference genomes (templates). The resulting consensus sequences are the basis of the SNP based phylogenetic trees, that are inferred for each template. These trees could be completely new, if no isolates were matched previously to that subtype, or could contain isolates that were previously added. Therefore ongoing surveillance is performed just by adding new isolates to the system. There is a clustering step during the distance calculation, where isolates with less than 10 SNPs distance are clustered to a 'cluster representative' isolate. These clustered isolates are denoted with an asterisk (\*) in the phylogenetic trees.  
 
 ###### Dependencies
-```
+
 Anaconda Python 2.7  
 Joblib package 0.13+  
 ETE3 package 3.0+  
 [KMA 1.1.7](https://bitbucket.org/genomicepidemiology/kma)  
 [IQ-tree 1.6](http://www.iqtree.org)  
 [Neighbor from the PHYLIP package 3.697](http://evolution.genetics.washington.edu/phylip.html)
-```
+
 
 ###### Installation
 ```
