@@ -331,7 +331,13 @@ else:
         outputmat = os.path.join(args.odir, os.path.split(args.outputfilenamemat)[1])
 
 # set up logfile
-logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, templ))))[-1]
+try:
+    logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, templ))))[-1]
+except IndexError:
+    from datetime import date, timedelta
+    yd = date.today() - timedelta(days = 1)
+    yddate = yd.strftime("%d%m%Y")
+    logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(yddate, templ))))[-1]
 
 # open database
 # MAIN

@@ -291,7 +291,13 @@ if args.allcalled:
 
 # set up logfile
 template_name = os.path.basename(bdir)
-logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, template_name))))[-1]
+try:
+    logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(todaysdate, template_name))))[-1]
+except IndexError:
+    from datetime import date, timedelta
+    yd = date.today() - timedelta(days = 1)
+    yddate = yd.strftime("%d%m%Y")
+    logfilename = sorted(glob.glob(os.path.join(os.path.dirname(base_path), "logs/{}_{}_*.log".format(yddate, templ))))[-1]
 
 treefilename = None
 
