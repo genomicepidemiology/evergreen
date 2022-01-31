@@ -109,3 +109,12 @@ Example of use with pairwise distance calculation method, which is suited for la
 _Output_  
 The default output is a list of templates and corresponding newick trees that were inferred in the current run.  
 The output with the *-E* option is a tab separated file (.tsv) listing all isolates in the system, together with their templates, phylogenetic tree(s) and distance matrix. The phylogenetic trees are in newick format. The distance matrix is in phylip format. These files are collected in an archive that has the same filename as the tab separated file.
+
+
+###### Citation
+
+If you use the software in a scientific publication, please cite the following papers:
+
+Szarvas, J.; Ahrenfeldt, J.; Cisneros, J.L.B.; Thomsen, M.C.F.; Aarestrup, F.M.; Lund, O. Large scale automated phylogenomic analysis of bacterial isolates and the Evergreen Online platform. Commun. Biol. 2020, 3, 137, doi:10.1038/s42003-020-0869-5.
+
+Szarvas, J.; Bartels, M.D.; Westh, H.; Lund, O. Rapid Open-Source SNP-Based Clustering Offers an Alternative to Core Genome MLST for Outbreak Tracing in a Hospital Setting. Front. Microbiol.  2021, 12, 703, doi: 10.3389/fmicb.2021.636608
