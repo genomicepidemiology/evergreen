@@ -144,6 +144,12 @@ The expected results of the analysis can be found in the _expected_ folder.
 - Nguyen, L.-T., Schmidt, H. A., von Haeseler, A. & Minh, B. Q. IQ-TREE: a fast and effective stochastic algorithm for estimating maximum-likelihood phylogenies. Mol. Biol. Evol. 32, 268–74 (2015).
 - Timme, R. E. et al. Benchmark datasets for phylogenomic pipeline validation, applications for foodborne pathogen surveillance. PeerJ 5, e3893 (2017).
 
+###### Citation
+
+If you use the software in a scientific publication, please cite the following papers:
+
+Szarvas, J.; Ahrenfeldt, J.; Cisneros, J.L.B.; Thomsen, M.C.F.; Aarestrup, F.M.; Lund, O. Large scale automated phylogenomic analysis of bacterial isolates and the Evergreen Online platform. Commun. Biol. 2020, 3, 137, doi:10.1038/s42003-020-0869-5.
+
 ###### License  
 Copyright (c) 2017-2019, Judit Szarvas, Technical University of Denmark, unless otherwise noted. All rights reserved.  
 
