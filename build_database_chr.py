@@ -194,20 +194,25 @@ logging("Pickles dumped to {}".format(args.out_dir))
 
 # Create KMA index
 # calculate k-mer threshold, ie 90% ~ 18.53, 85% ~ 7.43
-kmer_id =  round(((args.id/100)**args.ksize)*100, 2)
+hr_part = ""
+kmer_id = 101
+if (args.id % 100.0) != 0:
+    kmer_id =  round(((args.id/100)**args.ksize)*100, 2)
+    # KMA index is in decimals
+    hr_thr = kmer_id
+    if hr_thr > 1.0:
+        hr_thr = hr_thr / 100
+    hr_part = " -ht {0:.4f} -hq {0:.4f} -and".format(hr_thr)
 
-## Create KMA database for -Sparse method, homology reducing the sequences
+sparse_suffix = "_{}".format(args.sparse)
+if args.sparse is None:
+    sparse_suffix = ""
+    args.sparse = "-"
 kma_output = ""
 if args.pre is not None:
     kma_output = os.path.join(args.out_dir, args.pre)
 else:
-    kma_output = os.path.join(args.out_dir, "{}_k{}_hr{}_{}".format(os.path.basename(args.ref_list).rsplit(".", 1)[0], args.ksize, args.id, args.sparse))
-
-# KMA index is in decimals
-hr_thr = kmer_id
-if hr_thr > 1.0:
-    hr_thr = hr_thr / 100
-hr_part = " -ht {0:.4f} -hq {0:.4f} -and".format(hr_thr)
+    kma_output = os.path.join(args.out_dir, "{}_k{}_hr{}{}".format(os.path.basename(args.ref_list).rsplit(".", 1)[0], args.ksize, args.id, sparse_suffix))
 
 logging("KMA options:")
 logging("k-mer size: {}".format(args.ksize))
