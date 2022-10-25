@@ -101,12 +101,13 @@ def input_validation(filename):
         return os.path.abspath(filename)
 
 def change2subdir(mode):
+    tmptreefolder = ""
     if mode in ["all", "pw"]:
-        subdir = os.path.join(bdir, "{0}_{1}_{2}{3}".format(mode, method, ctime, suffix))
+        tmptreefolder = "{0}_{1}_{2}{3}".format(mode, method, ctime, suffix)
     else:
-        subdir = os.path.join(bdir, "{0}_{1}{2}".format(method, ctime, suffix))
-
-    subdir = subdir.replace(".", "_")
+        tmptreefolder = "{0}_{1}{2}".format(method, ctime, suffix)
+    tmptreefolder = tmptreefolder.replace(".", "_")
+    subdir = os.path.join(bdir, tmptreefolder)
     try:
         os.mkdir(subdir)
         os.chdir(subdir)
