@@ -45,8 +45,8 @@ mkdir logs
 mkdir output
 mkdir results_db
 # ~16Gb
-wget ftp://ftp.cbs.dtu.dk/public/CGE/databases/Evergreen/refseq_bacterial_complete_chromosomes_2021.tar.gz
-tar -xzf refseq_bacterial_complete_chromosomes_2021.tar.gz
+wget https://cge.food.dtu.dk/services/Evergreen/etc/database.tar.gz
+tar -xzf database.tar.gz
 
 # KMA database with default homology reduction settings
 mkdir hr_database
